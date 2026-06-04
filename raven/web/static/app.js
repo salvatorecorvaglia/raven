@@ -229,10 +229,11 @@
         const cores = cpu.percent_per_core || [];
         coreBars.innerHTML = cores
             .map((pct, i) => {
-                const color = colorForPercent(pct);
+                const safePct = Number(pct) || 0;
+                const color = colorForPercent(safePct);
                 return `<div class="core-bar">
                     <span class="core-bar-label">C${i}</span>
-                    <div class="core-bar-track"><div class="core-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+                    <div class="core-bar-track"><div class="core-bar-fill" style="width:${safePct}%;background:${color}"></div></div>
                 </div>`;
             })
             .join("");
@@ -336,12 +337,13 @@
         container.innerHTML = partitions
             .slice(0, 6)
             .map((p) => {
-                const color = colorForPercent(p.percent || 0);
+                const safePct = Number(p.percent) || 0;
+                const color = colorForPercent(safePct);
                 return `<div class="partition-row">
                     <span class="partition-mount">${escapeHtml(p.mountpoint)}</span>
                     <div class="partition-usage">
-                        <div class="partition-bar"><div class="partition-bar-fill" style="width:${p.percent}%;background:${color}"></div></div>
-                        <span class="partition-pct" style="color:${color}">${(p.percent || 0).toFixed(1)}%</span>
+                        <div class="partition-bar"><div class="partition-bar-fill" style="width:${safePct}%;background:${color}"></div></div>
+                        <span class="partition-pct" style="color:${color}">${safePct.toFixed(1)}%</span>
                     </div>
                     <span class="partition-size">${humanBytes(p.used || 0)} / ${humanBytes(p.total || 0)}</span>
                 </div>`;
@@ -383,7 +385,7 @@
                   .slice(0, 4)
                   .map(
                       (f) =>
-                          `<div class="sensor-row"><span class="sensor-label">${escapeHtml(f.label)}</span><span class="sensor-value">${f.current} RPM</span></div>`
+                          `<div class="sensor-row"><span class="sensor-label">${escapeHtml(f.label)}</span><span class="sensor-value">${Number(f.current) || 0} RPM</span></div>`
                   )
                   .join("")
             : "";
