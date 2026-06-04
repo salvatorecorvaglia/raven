@@ -1,6 +1,8 @@
-# 🐦‍⬛ Raven — Cross-Platform System Monitor
+# Raven 🐦‍⬛
 
-A modern system monitor that works on **Linux, BSD, macOS, and Windows**.
+**A modern system monitor that works on Linux, BSD, macOS, and Windows.**
+
+---
 
 ## Features
 
@@ -14,6 +16,8 @@ A modern system monitor that works on **Linux, BSD, macOS, and Windows**.
 | **Multi-Format Export** | Print stats as plain text, CSV, or JSON |
 | **Plugin Architecture** | Extensible monitoring via plugins — add new metric sources easily |
 | **TOML Configuration** | Customise refresh rate, enabled modules, web/remote ports, process sorting |
+
+---
 
 ## Quick Start
 
@@ -40,6 +44,8 @@ raven serve --port 9090
 raven --remote 10.0.0.5:9090
 ```
 
+---
+
 ## Commands
 
 ```
@@ -51,6 +57,8 @@ raven print [MODULES] [--format text|csv|json]  Print stats
 raven --remote HOST:PORT       Connect to remote agent
 raven --config PATH            Use custom config file
 ```
+
+---
 
 ## Configuration
 
@@ -92,6 +100,8 @@ max_display = 25
 sort_by = "cpu"          # cpu | memory | pid | name
 ```
 
+---
+
 ## REST API
 
 When the web dashboard or remote agent is running:
@@ -114,6 +124,8 @@ curl http://localhost:8080/api/v1/system_info
 curl -H "X-API-Key: my-secret" http://localhost:8080/api/v1/snapshot
 ```
 
+---
+
 ## TUI Keybindings
 
 | Key | Action |
@@ -121,6 +133,8 @@ curl -H "X-API-Key: my-secret" http://localhost:8080/api/v1/snapshot
 | `q` | Quit |
 | `r` | Force refresh |
 | `p` | Cycle process sort (CPU → Memory → PID → Name) |
+
+---
 
 ## Writing a Plugin
 
@@ -151,6 +165,8 @@ PLUGIN_INFO = {
 }
 ```
 
+---
+
 ## Docker Support
 
 Install with Docker extras for container monitoring:
@@ -159,11 +175,27 @@ Install with Docker extras for container monitoring:
 pip3 install -e ".[docker]"
 ```
 
+---
+
 ## Requirements
 
 - Python ≥ 3.11
 - Works on Linux, macOS, Windows, FreeBSD
 
-## License
+---
 
-MIT
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 🔐 Security
+
+If you discover a security vulnerability, please see our [Security Policy](SECURITY.md).
+
+## 📝 License
+
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+
+---
+
+**Author**: [Salvatore Corvaglia](https://github.com/salvatorecorvaglia)
