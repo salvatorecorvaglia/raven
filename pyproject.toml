@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raven-monitor"
+version = "0.1.0"
+description = "Cross-platform system monitor with TUI, web dashboard, and remote monitoring"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "Raven Contributors"},
+]
+keywords = ["system", "monitor", "dashboard", "htop", "top", "tui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+]
+
+dependencies = [
+    "psutil>=5.9.0",
+    "textual>=0.80.0",
+    "rich>=13.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+docker = ["docker>=7.0.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4.0",
+]
+all = ["raven-monitor[docker,dev]"]
+
+[project.scripts]
+raven = "raven.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/raven-monitor/raven"
+Documentation = "https://github.com/raven-monitor/raven#readme"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["raven*"]
+
+[tool.setuptools.package-data]
+"raven.tui" = ["*.tcss"]
+"raven.web" = ["static/*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

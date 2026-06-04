@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Raven System Monitor — real-time cross-platform system monitoring dashboard">
+    <title>🐦‍⬛ Raven — System Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header id="main-header">
+        <div class="header-left">
+            <span class="logo">🐦‍⬛</span>
+            <h1>Raven</h1>
+            <span class="badge" id="status-badge">Connecting…</span>
+        </div>
+        <div class="header-right">
+            <span id="hostname" class="header-info"></span>
+            <span id="os-info" class="header-info"></span>
+            <span id="uptime" class="header-info"></span>
+            <span id="clock" class="header-info"></span>
+        </div>
+    </header>
+
+    <!-- Dashboard Grid -->
+    <main id="dashboard">
+        <!-- CPU Card -->
+        <section class="card" id="cpu-card">
+            <div class="card-header">
+                <h2>CPU</h2>
+                <span class="card-value" id="cpu-overall">—%</span>
+            </div>
+            <div class="card-body">
+                <canvas id="cpu-chart" height="120"></canvas>
+                <div class="metric-row" id="cpu-details">
+                    <div class="metric"><span class="label">Cores</span><span class="value" id="cpu-cores">—</span></div>
+                    <div class="metric"><span class="label">Freq</span><span class="value" id="cpu-freq">—</span></div>
+                    <div class="metric"><span class="label">Load</span><span class="value" id="cpu-load">—</span></div>
+                </div>
+                <div id="cpu-core-bars" class="core-bars"></div>
+            </div>
+        </section>
+
+        <!-- Memory Card -->
+        <section class="card" id="memory-card">
+            <div class="card-header">
+                <h2>Memory</h2>
+                <span class="card-value" id="mem-overall">—%</span>
+            </div>
+            <div class="card-body">
+                <canvas id="mem-chart" height="120"></canvas>
+                <div class="metric-row">
+                    <div class="metric"><span class="label">Used</span><span class="value" id="mem-used">—</span></div>
+                    <div class="metric"><span class="label">Total</span><span class="value" id="mem-total">—</span></div>
+                    <div class="metric"><span class="label">Available</span><span class="value" id="mem-avail">—</span></div>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-label">RAM</div>
+                    <div class="progress-bar"><div class="progress-fill" id="ram-bar"></div></div>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-label">Swap</div>
+                    <div class="progress-bar"><div class="progress-fill swap" id="swap-bar"></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Network Card -->
+        <section class="card" id="network-card">
+            <div class="card-header">
+                <h2>Network</h2>
+                <span class="card-value" id="net-connections">— conn</span>
+            </div>
+            <div class="card-body">
+                <canvas id="net-chart" height="120"></canvas>
+                <div id="net-interfaces" class="interface-list"></div>
+            </div>
+        </section>
+
+        <!-- Disk Card -->
+        <section class="card" id="disk-card">
+            <div class="card-header">
+                <h2>Disk</h2>
+            </div>
+            <div class="card-body">
+                <div id="disk-partitions" class="partition-list"></div>
+                <div class="metric-row" id="disk-io">
+                    <div class="metric"><span class="label">Read</span><span class="value" id="disk-read">—</span></div>
+                    <div class="metric"><span class="label">Write</span><span class="value" id="disk-write">—</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sensors Card -->
+        <section class="card" id="sensors-card">
+            <div class="card-header">
+                <h2>Sensors</h2>
+            </div>
+            <div class="card-body">
+                <div id="temp-list" class="sensor-list"></div>
+                <div id="fan-list" class="sensor-list"></div>
+                <div id="battery-info" class="sensor-list"></div>
+            </div>
+        </section>
+
+        <!-- Users Card -->
+        <section class="card card-small" id="users-card">
+            <div class="card-header">
+                <h2>Users</h2>
+                <span class="card-value" id="user-count">—</span>
+            </div>
+            <div class="card-body">
+                <div id="user-list" class="user-list"></div>
+            </div>
+        </section>
+
+        <!-- Containers Card -->
+        <section class="card" id="containers-card">
+            <div class="card-header">
+                <h2>Containers</h2>
+                <span class="card-value" id="container-count">—</span>
+            </div>
+            <div class="card-body">
+                <div id="container-list" class="container-list"></div>
+            </div>
+        </section>
+
+        <!-- Process Table -->
+        <section class="card card-wide" id="process-card">
+            <div class="card-header">
+                <h2>Processes</h2>
+                <span class="card-value" id="proc-count">— processes</span>
+            </div>
+            <div class="card-body">
+                <div class="table-wrapper">
+                    <table id="process-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="pid">PID</th>
+                                <th data-sort="name">Name</th>
+                                <th data-sort="username">User</th>
+                                <th data-sort="cpu_percent">CPU%</th>
+                                <th data-sort="memory_percent">MEM%</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="process-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer id="main-footer">
+        <span>🐦‍⬛ Raven v0.1.0</span>
+        <span id="last-update">Last update: —</span>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
