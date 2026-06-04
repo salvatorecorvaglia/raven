@@ -24,6 +24,11 @@
     let sortAsc = false;
 
     // ── Utilities ───────────────────────────────────────────────────────
+    function escapeHtml(str) {
+        const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+        return String(str).replace(/[&<>"']/g, (c) => map[c]);
+    }
+
     function humanBytes(bytes) {
         const units = ["B", "KB", "MB", "GB", "TB"];
         let i = 0;
@@ -315,9 +320,9 @@
             .map((iface) => {
                 const addr = iface.addrs && iface.addrs.length > 0 ? iface.addrs[0] : "—";
                 return `<div class="iface-row">
-                    <span class="iface-name">${iface.name}</span>
+                    <span class="iface-name">${escapeHtml(iface.name)}</span>
                     <span class="iface-rate">▲ ${humanBytes(iface.bytes_sent)}  ▼ ${humanBytes(iface.bytes_recv)}</span>
-                    <span class="iface-addr">${addr}</span>
+                    <span class="iface-addr">${escapeHtml(addr)}</span>
                 </div>`;
             })
             .join("");
@@ -333,7 +338,7 @@
             .map((p) => {
                 const color = colorForPercent(p.percent || 0);
                 return `<div class="partition-row">
-                    <span class="partition-mount">${p.mountpoint}</span>
+                    <span class="partition-mount">${escapeHtml(p.mountpoint)}</span>
                     <div class="partition-usage">
                         <div class="partition-bar"><div class="partition-bar-fill" style="width:${p.percent}%;background:${color}"></div></div>
                         <span class="partition-pct" style="color:${color}">${(p.percent || 0).toFixed(1)}%</span>
@@ -363,7 +368,7 @@
                       else if (t.high && t.current >= t.high) cls = "temp-warn";
                       else if (t.current >= 80) cls = "temp-warn";
                       return `<div class="sensor-row">
-                        <span class="sensor-label">${t.label}</span>
+                        <span class="sensor-label">${escapeHtml(t.label)}</span>
                         <span class="sensor-value ${cls}">${t.current.toFixed(0)}°C</span>
                     </div>`;
                   })
@@ -378,7 +383,7 @@
                   .slice(0, 4)
                   .map(
                       (f) =>
-                          `<div class="sensor-row"><span class="sensor-label">${f.label}</span><span class="sensor-value">${f.current} RPM</span></div>`
+                          `<div class="sensor-row"><span class="sensor-label">${escapeHtml(f.label)}</span><span class="sensor-value">${f.current} RPM</span></div>`
                   )
                   .join("")
             : "";
@@ -406,7 +411,7 @@
             })
             .map(
                 (u) =>
-                    `<div class="user-row"><span>${u.name}</span><span style="color:var(--text-dim);font-size:0.75rem">${u.terminal || "—"}</span></div>`
+                    `<div class="user-row"><span>${escapeHtml(u.name)}</span><span style="color:var(--text-dim);font-size:0.75rem">${escapeHtml(u.terminal || "—")}</span></div>`
             )
             .join("");
     }
@@ -423,10 +428,10 @@
                   .map((c) => {
                       const isRunning = c.status === "running" || c.status === "up";
                       return `<div class="container-row">
-                        <span class="container-runtime">${c.runtime}</span>
-                        <span class="container-name">${c.name}</span>
-                        <span class="container-status ${isRunning ? "status-running" : "status-stopped"}">${c.status}</span>
-                        <span class="container-image">${c.image}</span>
+                        <span class="container-runtime">${escapeHtml(c.runtime)}</span>
+                        <span class="container-name">${escapeHtml(c.name)}</span>
+                        <span class="container-status ${isRunning ? "status-running" : "status-stopped"}">${escapeHtml(c.status)}</span>
+                        <span class="container-image">${escapeHtml(c.image)}</span>
                     </div>`;
                   })
                   .join("")
@@ -451,12 +456,12 @@
             .map(
                 (p) =>
                     `<tr>
-                    <td>${p.pid}</td>
-                    <td>${(p.name || "").substring(0, 30)}</td>
-                    <td>${(p.username || "—").substring(0, 12)}</td>
+                    <td>${escapeHtml(p.pid)}</td>
+                    <td>${escapeHtml((p.name || "").substring(0, 30))}</td>
+                    <td>${escapeHtml((p.username || "—").substring(0, 12))}</td>
                     <td style="color:${colorForPercent(p.cpu_percent || 0)}">${(p.cpu_percent || 0).toFixed(1)}</td>
                     <td style="color:${colorForPercent(p.memory_percent || 0)}">${(p.memory_percent || 0).toFixed(1)}</td>
-                    <td>${(p.status || "").substring(0, 10)}</td>
+                    <td>${escapeHtml((p.status || "").substring(0, 10))}</td>
                 </tr>`
             )
             .join("");

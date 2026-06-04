@@ -1,6 +1,6 @@
 # 🐦‍⬛ Raven — Cross-Platform System Monitor
 
-A modern system monitor that works on **Linux, BSD, macOS, and Windows**. Think `htop` meets `neofetch` with a web dashboard and remote monitoring.
+A modern system monitor that works on **Linux, BSD, macOS, and Windows**.
 
 ## Features
 
