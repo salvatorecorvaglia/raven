@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 # ── CPU ──────────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class CpuMetrics:
     """Aggregate CPU statistics."""
@@ -31,6 +32,7 @@ class CpuMetrics:
 
 # ── Memory ───────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class MemoryMetrics:
     """Physical + swap memory."""
@@ -46,6 +48,7 @@ class MemoryMetrics:
 
 
 # ── Disk ─────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class DiskPartition:
@@ -74,6 +77,7 @@ class DiskMetrics:
 
 # ── Network ──────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class NetworkInterface:
     name: str = ""
@@ -92,6 +96,7 @@ class NetworkMetrics:
 
 # ── Processes ────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class ProcessInfo:
     pid: int = 0
@@ -107,6 +112,7 @@ class ProcessInfo:
 
 # ── Users ────────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class UserInfo:
     name: str = ""
@@ -116,6 +122,7 @@ class UserInfo:
 
 
 # ── Sensors ──────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class TemperatureReading:
@@ -147,6 +154,7 @@ class SensorMetrics:
 
 # ── Containers ───────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class ContainerInfo:
     name: str = ""
@@ -168,6 +176,7 @@ class ContainerMetrics:
 
 # ── System Info ──────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class SystemInfoMetrics:
     hostname: str = ""
@@ -183,6 +192,7 @@ class SystemInfoMetrics:
 
 
 # ── Aggregate Snapshot ───────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class SystemSnapshot:

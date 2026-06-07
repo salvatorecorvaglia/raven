@@ -23,10 +23,19 @@ from raven.core.collector import Collector
 log = logging.getLogger(__name__)
 
 # Module names valid for individual endpoints
-VALID_MODULES = frozenset({
-    "cpu", "memory", "disk", "network", "processes",
-    "users", "sensors", "containers", "system_info",
-})
+VALID_MODULES = frozenset(
+    {
+        "cpu",
+        "memory",
+        "disk",
+        "network",
+        "processes",
+        "users",
+        "sensors",
+        "containers",
+        "system_info",
+    }
+)
 
 
 def _warn_open_bind(host: str, api_key: str, service_name: str) -> None:
@@ -92,6 +101,7 @@ def create_base_app(
     _skip = skip_auth_paths or frozenset()
 
     if api_key:
+
         @app.middleware("http")
         async def _check_api_key(request: Request, call_next):
             path = request.url.path

@@ -61,9 +61,7 @@ class SensorsPlugin(MonitorPlugin):
             for group_name, entries in fans.items():
                 for entry in entries:
                     label = entry.label or group_name
-                    readings.append(
-                        FanReading(label=label, current=entry.current)
-                    )
+                    readings.append(FanReading(label=label, current=entry.current))
         except (AttributeError, OSError):
             pass
         return readings

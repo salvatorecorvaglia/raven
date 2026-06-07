@@ -20,12 +20,14 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Raven — cross-platform system monitor",
     )
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         metavar="PATH",
         help="Path to raven.toml config file",
     )
     parser.add_argument(
-        "--remote", "-r",
+        "--remote",
+        "-r",
         metavar="HOST:PORT",
         help="Connect to a remote Raven agent",
     )
@@ -38,7 +40,9 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── web ──────────────────────────────────────────────────────────
     web_p = sub.add_parser("web", help="Start the web dashboard")
     web_p.add_argument("--host", default=None, help="Bind host (default: from config)")
-    web_p.add_argument("--port", "-p", type=int, default=None, help="Bind port (default: from config)")
+    web_p.add_argument(
+        "--port", "-p", type=int, default=None, help="Bind port (default: from config)"
+    )
 
     # ── serve ────────────────────────────────────────────────────────
     serve_p = sub.add_parser("serve", help="Start remote monitoring agent")
@@ -51,10 +55,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "modules",
         nargs="*",
         default=None,
-        help="Module names to print (cpu, memory, disk, network, processes, users, sensors, containers, system_info)",
+        help=(
+            "Module names to print (cpu, memory, disk, network, "
+            "processes, users, sensors, containers, system_info)"
+        ),
     )
     print_p.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["text", "csv", "json"],
         default=None,
         help="Output format (default: from config)",
@@ -81,6 +89,7 @@ def main(argv: list[str] | None = None) -> None:
     # ── fetch ────────────────────────────────────────────────────────
     if command == "fetch":
         from raven.fetch import run_fetch
+
         run_fetch(config)
         return
 
@@ -105,6 +114,7 @@ def main(argv: list[str] | None = None) -> None:
 
 # ── Sub-command handlers ─────────────────────────────────────────────────────
 
+
 def _cmd_print(args: argparse.Namespace, config) -> None:
     from raven.core.collector import Collector
 
@@ -113,6 +123,7 @@ def _cmd_print(args: argparse.Namespace, config) -> None:
 
     if args.remote:
         from raven.remote.client import RemoteCollector
+
         collector = RemoteCollector(args.remote)
     else:
         collector = Collector(config)
@@ -121,12 +132,15 @@ def _cmd_print(args: argparse.Namespace, config) -> None:
 
     if fmt == "json":
         from raven.export.json_export import JsonExporter
+
         exporter = JsonExporter()
     elif fmt == "csv":
         from raven.export.csv_export import CsvExporter
+
         exporter = CsvExporter()
     else:
         from raven.export.text_export import TextExporter
+
         exporter = TextExporter()
 
     print(exporter.format(snapshot, modules))
@@ -162,12 +176,15 @@ def _cmd_tui(args: argparse.Namespace, config) -> None:
     remote_addr = getattr(args, "remote", None)
     if remote_addr:
         from raven.remote.client import RemoteCollector
+
         collector = RemoteCollector(remote_addr)
     else:
         from raven.core.collector import Collector
+
         collector = Collector(config)
 
     from raven.tui.app import RavenApp
+
     app = RavenApp(collector=collector, config=config)
     app.run()
 

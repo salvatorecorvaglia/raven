@@ -86,10 +86,14 @@ class RemoteCollector:
         ct_data = data.get("containers", {})
 
         # CPU
-        cpu = CpuMetrics(**{k: v for k, v in cpu_data.items() if k in CpuMetrics.__dataclass_fields__})
+        cpu = CpuMetrics(
+            **{k: v for k, v in cpu_data.items() if k in CpuMetrics.__dataclass_fields__}
+        )
 
         # Memory
-        mem = MemoryMetrics(**{k: v for k, v in mem_data.items() if k in MemoryMetrics.__dataclass_fields__})
+        mem = MemoryMetrics(
+            **{k: v for k, v in mem_data.items() if k in MemoryMetrics.__dataclass_fields__}
+        )
 
         # Disk
         parts = [DiskPartition(**p) for p in disk_data.get("partitions", [])]
@@ -99,7 +103,9 @@ class RemoteCollector:
 
         # Network
         ifaces = [
-            NetworkInterface(**{k: v for k, v in i.items() if k in NetworkInterface.__dataclass_fields__})
+            NetworkInterface(
+                **{k: v for k, v in i.items() if k in NetworkInterface.__dataclass_fields__}
+            )
             for i in net_data.get("interfaces", [])
         ]
         network = NetworkMetrics(
@@ -121,7 +127,9 @@ class RemoteCollector:
 
         # Sensors
         temps = [
-            TemperatureReading(**{k: v for k, v in t.items() if k in TemperatureReading.__dataclass_fields__})
+            TemperatureReading(
+                **{k: v for k, v in t.items() if k in TemperatureReading.__dataclass_fields__}
+            )
             for t in sensor_data.get("temperatures", [])
         ]
         fans = [
@@ -130,8 +138,11 @@ class RemoteCollector:
         ]
         bat_raw = sensor_data.get("battery")
         battery = (
-            BatteryInfo(**{k: v for k, v in bat_raw.items() if k in BatteryInfo.__dataclass_fields__})
-            if bat_raw else None
+            BatteryInfo(
+                **{k: v for k, v in bat_raw.items() if k in BatteryInfo.__dataclass_fields__}
+            )
+            if bat_raw
+            else None
         )
         sensors = SensorMetrics(temperatures=temps, fans=fans, battery=battery)
 

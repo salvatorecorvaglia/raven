@@ -26,6 +26,7 @@ def test_cpu_plugin(mock_loadavg, mock_freq, mock_count, mock_percent):
     assert metrics.percent_overall == 15.0
     assert metrics.core_count_logical == 4
 
+
 @patch("psutil.virtual_memory")
 @patch("psutil.swap_memory")
 def test_memory_plugin(mock_swap, mock_virtual):
@@ -38,6 +39,7 @@ def test_memory_plugin(mock_swap, mock_virtual):
     assert metrics.total == 8000
     assert metrics.percent == 50.0
     assert metrics.swap_total == 2000
+
 
 @patch("psutil.disk_partitions")
 @patch("psutil.disk_usage")
@@ -62,6 +64,7 @@ def test_disk_plugin(mock_io, mock_usage, mock_partitions):
     assert len(metrics.partitions) == 1
     assert metrics.partitions[0].mountpoint == "/"
     assert metrics.io.read_bytes == 100
+
 
 @patch("psutil.net_io_counters")
 @patch("psutil.net_if_addrs")
@@ -89,14 +92,19 @@ def test_network_plugin(mock_conns, mock_addrs, mock_io):
     assert metrics.interfaces[0].name == "eth0"
     assert metrics.connections_count == 3
 
+
 @patch("psutil.process_iter")
 def test_processes_plugin(mock_proc_iter):
     # Mocking two raw processes
     proc1 = MagicMock()
     proc1.info = {"pid": 1, "cpu_percent": 10.0, "memory_percent": 5.0}
     proc1.as_dict.return_value = {
-        "name": "proc1", "username": "user1", "status": "running",
-        "cmdline": ["proc1", "arg"], "num_threads": 2, "memory_info": MagicMock(rss=5000)
+        "name": "proc1",
+        "username": "user1",
+        "status": "running",
+        "cmdline": ["proc1", "arg"],
+        "num_threads": 2,
+        "memory_info": MagicMock(rss=5000),
     }
 
     mock_proc_iter.return_value = [proc1]
@@ -108,6 +116,7 @@ def test_processes_plugin(mock_proc_iter):
     assert metrics[0].pid == 1
     assert metrics[0].name == "proc1"
     assert metrics[0].cpu_percent == 10.0
+
 
 @patch("platform.node")
 @patch("platform.system")
@@ -127,6 +136,7 @@ def test_system_info_plugin(mock_boot, mock_mach, mock_rel, mock_sys, mock_node)
     assert metrics.hostname == "host1"
     assert metrics.os_name == "Linux"
 
+
 @patch("psutil.users")
 def test_users_plugin(mock_users):
     user = MagicMock()
@@ -143,18 +153,16 @@ def test_users_plugin(mock_users):
     assert len(metrics) == 1
     assert metrics[0].name == "user1"
 
+
 @patch("psutil.sensors_temperatures", create=True)
 @patch("psutil.sensors_fans", create=True)
 @patch("psutil.sensors_battery", create=True)
 def test_sensors_plugin(mock_bat, mock_fans, mock_temps):
     mock_temps.return_value = {
-        "cpu_thermal": [
-            MagicMock(label="Core 0", current=45.0, high=80.0, critical=90.0)
-        ]
+        "cpu_thermal": [MagicMock(label="Core 0", current=45.0, high=80.0, critical=90.0)]
     }
     mock_fans.return_value = {"fan1": [MagicMock(label="Fan 1", current=2000)]}
     mock_bat.return_value = MagicMock(percent=95.0, secs_left=-1, power_plugged=True)
-
 
     plugin = SensorsPlugin()
     assert plugin.is_available() is True

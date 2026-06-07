@@ -11,6 +11,7 @@ def test_default_config():
     assert cfg.web.host == "127.0.0.1"
     assert cfg.remote.host == "127.0.0.1"
 
+
 def test_dict_to_config_filtering():
     raw_data = {
         "general": {"refresh_interval": 5.0, "unknown_key": "ignored"},
@@ -20,6 +21,7 @@ def test_dict_to_config_filtering():
     cfg = _dict_to_config(raw_data)
     assert cfg.general.refresh_interval == 5.0
     assert cfg.web.port == 9999
+
 
 def test_load_explicit_config():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:

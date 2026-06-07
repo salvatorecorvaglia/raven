@@ -1,4 +1,3 @@
-
 import pytest
 
 from raven.config import (
@@ -31,15 +30,12 @@ def mock_config():
     return RavenConfig(
         general=GeneralConfig(refresh_interval=1.0),
         modules=ModulesConfig(),
-        web=WebConfig(
-            enabled=False, host="127.0.0.1", port=8080, api_key=""
-        ),
-        remote=RemoteConfig(
-            enabled=False, host="127.0.0.1", port=9090, api_key=""
-        ),
+        web=WebConfig(enabled=False, host="127.0.0.1", port=8080, api_key=""),
+        remote=RemoteConfig(enabled=False, host="127.0.0.1", port=9090, api_key=""),
         export=ExportConfig(format="text"),
-        processes=ProcessesConfig(max_display=25, sort_by="cpu")
+        processes=ProcessesConfig(max_display=25, sort_by="cpu"),
     )
+
 
 @pytest.fixture
 def dummy_snapshot():
@@ -99,7 +95,6 @@ def dummy_snapshot():
             ],
             connections_count=5,
         ),
-
         sensors=SensorMetrics(
             temperatures=[],
             fans=[],

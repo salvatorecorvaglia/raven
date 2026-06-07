@@ -40,33 +40,37 @@ class TextExporter(BaseExporter):
         # ── CPU ──────────────────────────────────────────────────────
         if show_all or "cpu" in mods:
             c = snapshot.cpu
-            parts.append(f"  CPU  {_bar(c.percent_overall)}"
-                         f"  {c.core_count_logical} cores")
+            parts.append(f"  CPU  {_bar(c.percent_overall)}  {c.core_count_logical} cores")
             if c.frequency_current_mhz:
                 parts[-1] += f"  @ {c.frequency_current_mhz:.0f} MHz"
             if c.load_avg_1 is not None:
-                parts.append(
-                    f"  Load: {c.load_avg_1:.2f}  {c.load_avg_5:.2f}  {c.load_avg_15:.2f}"
-                )
+                parts.append(f"  Load: {c.load_avg_1:.2f}  {c.load_avg_5:.2f}  {c.load_avg_15:.2f}")
             parts.append("")
 
         # ── Memory ───────────────────────────────────────────────────
         if show_all or "memory" in mods:
             m = snapshot.memory
-            parts.append(f"  RAM  {_bar(m.percent)}"
-                         f"  {human_bytes(m.used)} / {human_bytes(m.total)}")
+            parts.append(
+                f"  RAM  {_bar(m.percent)}  {human_bytes(m.used)} / {human_bytes(m.total)}"
+            )
             if m.swap_total > 0:
-                parts.append(f"  Swap {_bar(m.swap_percent)}"
-                             f"  {human_bytes(m.swap_used)} / {human_bytes(m.swap_total)}")
+                parts.append(
+                    f"  Swap {_bar(m.swap_percent)}"
+                    f"  {human_bytes(m.swap_used)} / {human_bytes(m.swap_total)}"
+                )
             parts.append("")
 
         # ── Disk ─────────────────────────────────────────────────────
         if show_all or "disk" in mods:
             for dp in snapshot.disk.partitions[:8]:
-                parts.append(f"  {dp.mountpoint:<15} {_bar(dp.percent)}"
-                             f"  {human_bytes(dp.used)} / {human_bytes(dp.total)}")
+                parts.append(
+                    f"  {dp.mountpoint:<15} {_bar(dp.percent)}"
+                    f"  {human_bytes(dp.used)} / {human_bytes(dp.total)}"
+                )
             io = snapshot.disk.io
-            parts.append(f"  I/O  R: {human_bytes(io.read_bytes)}  W: {human_bytes(io.write_bytes)}")
+            parts.append(
+                f"  I/O  R: {human_bytes(io.read_bytes)}  W: {human_bytes(io.write_bytes)}"
+            )
             parts.append("")
 
         # ── Network ──────────────────────────────────────────────────
@@ -86,8 +90,7 @@ class TextExporter(BaseExporter):
             parts.append("  " + "─" * 50)
             for p in snapshot.processes[:15]:
                 parts.append(
-                    f"  {p.pid:<9} {p.cpu_percent:5.1f}  {p.memory_percent:5.1f}"
-                    f"   {p.name[:30]}"
+                    f"  {p.pid:<9} {p.cpu_percent:5.1f}  {p.memory_percent:5.1f}   {p.name[:30]}"
                 )
             parts.append("")
 
@@ -101,7 +104,9 @@ class TextExporter(BaseExporter):
         # ── Sensors ──────────────────────────────────────────────────
         if show_all or "sensors" in mods:
             if snapshot.sensors.temperatures:
-                temp_strs = [f"{t.label}: {t.current:.0f}°C" for t in snapshot.sensors.temperatures[:8]]
+                temp_strs = [
+                    f"{t.label}: {t.current:.0f}°C" for t in snapshot.sensors.temperatures[:8]
+                ]
                 parts.append(f"  Temps: {', '.join(temp_strs)}")
             if snapshot.sensors.fans:
                 fan_strs = [f"{f.label}: {f.current} RPM" for f in snapshot.sensors.fans[:4]]

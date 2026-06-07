@@ -59,6 +59,7 @@ _DEFAULTS: dict[str, Any] = {
 
 # ── Config Dataclass ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class GeneralConfig:
     refresh_interval: int = 2
@@ -116,6 +117,7 @@ class RavenConfig:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively merge *override* into *base* (non-destructive)."""
     merged = dict(base)
@@ -168,7 +170,8 @@ def _dict_to_config(data: dict[str, Any]) -> RavenConfig:
             else:
                 log.warning(
                     "Unknown config key '%s' in [%s] — ignoring",
-                    k, section_name,
+                    k,
+                    section_name,
                 )
         sections[section_name] = cls(**filtered)
 
@@ -183,6 +186,7 @@ def _dict_to_config(data: dict[str, Any]) -> RavenConfig:
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
+
 
 def load_config(explicit_path: str | None = None) -> RavenConfig:
     """Load and merge configuration, returning a ``RavenConfig``.

@@ -14,7 +14,6 @@ from raven.plugins.base import MonitorPlugin
 psutil.cpu_percent(interval=None)
 
 
-
 class CpuPlugin(MonitorPlugin):
     name = "cpu"
     category = "cpu"

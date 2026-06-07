@@ -66,6 +66,7 @@ class ContainersPlugin(MonitorPlugin):
     def _check_docker(self) -> bool:
         try:
             import docker  # noqa: F401
+
             if self._docker_client is None:
                 self._docker_client = docker.from_env()
             self._docker_client.ping()
@@ -81,6 +82,7 @@ class ContainersPlugin(MonitorPlugin):
         try:
             if self._docker_client is None:
                 import docker
+
                 self._docker_client = docker.from_env()
 
             for c in self._docker_client.containers.list(all=True):

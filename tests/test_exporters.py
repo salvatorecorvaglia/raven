@@ -9,11 +9,13 @@ def test_json_exporter(dummy_snapshot):
     assert '"timestamp"' in output
     assert '"system_info"' in output
 
+
 def test_csv_exporter(dummy_snapshot):
     exporter = CsvExporter()
     output = exporter.format(dummy_snapshot, modules=["cpu"])
     assert "cpu.percent_overall" in output
     assert "10.0" in output
+
 
 def test_text_exporter(dummy_snapshot):
     exporter = TextExporter()

@@ -54,10 +54,7 @@ class Collector:
     def collect(self) -> SystemSnapshot:
         """Run all plugins in parallel and return a snapshot."""
         results: dict[str, Any] = {}
-        futures = {
-            self._executor.submit(plugin.collect): plugin
-            for plugin in self.plugins
-        }
+        futures = {self._executor.submit(plugin.collect): plugin for plugin in self.plugins}
         for future in as_completed(futures):
             plugin = futures[future]
             try:

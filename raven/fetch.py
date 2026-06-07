@@ -34,9 +34,6 @@ _RAVEN_ART = r"""
 """
 
 
-
-
-
 def _color_percent(percent: float) -> str:
     """Return a colored percentage string."""
     if percent < 50:
@@ -74,27 +71,39 @@ def run_fetch(config: RavenConfig | None = None) -> None:
     # CPU
     freq_str = f" @ {cpu.frequency_current_mhz:.0f} MHz" if cpu.frequency_current_mhz else ""
     phys = f"{cpu.core_count_physical}P/" if cpu.core_count_physical else ""
-    lines.append(f"[bold]CPU[/bold]      {phys}{cpu.core_count_logical} cores{freq_str}"
-                 f" — {_color_percent(cpu.percent_overall)}")
+    lines.append(
+        f"[bold]CPU[/bold]      {phys}{cpu.core_count_logical} cores{freq_str}"
+        f" — {_color_percent(cpu.percent_overall)}"
+    )
 
     # Load average
     if cpu.load_avg_1 is not None:
-        lines.append(f"[bold]Load[/bold]     {cpu.load_avg_1:.2f}  {cpu.load_avg_5:.2f}  {cpu.load_avg_15:.2f}")
+        load_str = (
+            f"[bold]Load[/bold]     {cpu.load_avg_1:.2f}  "
+            f"{cpu.load_avg_5:.2f}  {cpu.load_avg_15:.2f}"
+        )
+        lines.append(load_str)
 
     # Memory
-    lines.append(f"[bold]Memory[/bold]   {human_bytes(mem.used)} / {human_bytes(mem.total)}"
-                 f" — {_color_percent(mem.percent)}")
+    lines.append(
+        f"[bold]Memory[/bold]   {human_bytes(mem.used)} / {human_bytes(mem.total)}"
+        f" — {_color_percent(mem.percent)}"
+    )
 
     # Swap
     if mem.swap_total > 0:
-        lines.append(f"[bold]Swap[/bold]     {human_bytes(mem.swap_used)} / {human_bytes(mem.swap_total)}"
-                     f" — {_color_percent(mem.swap_percent)}")
+        lines.append(
+            f"[bold]Swap[/bold]     {human_bytes(mem.swap_used)} / {human_bytes(mem.swap_total)}"
+            f" — {_color_percent(mem.swap_percent)}"
+        )
 
     # Disk (first partition only for brevity)
     if disk.partitions:
         dp = disk.partitions[0]
-        lines.append(f"[bold]Disk[/bold]     {human_bytes(dp.used)} / {human_bytes(dp.total)}"
-                     f" — {_color_percent(dp.percent)}  ({dp.mountpoint})")
+        lines.append(
+            f"[bold]Disk[/bold]     {human_bytes(dp.used)} / {human_bytes(dp.total)}"
+            f" — {_color_percent(dp.percent)}  ({dp.mountpoint})"
+        )
 
     # Network (first non-loopback interface with an address)
     for iface in net.interfaces:
@@ -160,10 +169,12 @@ def run_fetch(config: RavenConfig | None = None) -> None:
 
     output = "\n".join(combined)
     console.print()
-    console.print(Panel(
-        output,
-        title="[bold bright_white]🐦‍⬛ RAVEN[/bold bright_white]",
-        border_style="cyan",
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            output,
+            title="[bold bright_white]🐦‍⬛ RAVEN[/bold bright_white]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+    )
     console.print()

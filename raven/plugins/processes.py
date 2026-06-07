@@ -17,6 +17,7 @@ class ProcessesPlugin(MonitorPlugin):
 
     def collect(self) -> list[ProcessInfo]:
         from raven.config import load_config
+
         config = load_config()
         # Retrieve at least 100 processes or twice the display count to support sorting in TUI/web
         limit = max(100, config.processes.max_display * 2)
@@ -32,9 +33,9 @@ class ProcessesPlugin(MonitorPlugin):
         raw_procs.sort(
             key=lambda item: (
                 item[1].get("cpu_percent") or 0.0,
-                item[1].get("memory_percent") or 0.0
+                item[1].get("memory_percent") or 0.0,
             ),
-            reverse=True
+            reverse=True,
         )
 
         top_procs = raw_procs[:limit]
@@ -43,10 +44,9 @@ class ProcessesPlugin(MonitorPlugin):
         for proc, info in top_procs:
             try:
                 # Fetch detailed heavy attributes only for top processes
-                full_info = proc.as_dict(attrs=[
-                    "name", "username", "status", "cmdline",
-                    "num_threads", "memory_info"
-                ])
+                full_info = proc.as_dict(
+                    attrs=["name", "username", "status", "cmdline", "num_threads", "memory_info"]
+                )
                 cmdline = full_info.get("cmdline") or []
                 mem_info = full_info.get("memory_info")
                 procs.append(

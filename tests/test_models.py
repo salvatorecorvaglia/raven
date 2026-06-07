@@ -16,6 +16,7 @@ def test_models_frozen():
     with pytest.raises(dataclasses.FrozenInstanceError):
         info.hostname = "new-host"
 
+
 def test_cpu_metrics():
     cpu = CpuMetrics(
         percent_overall=50.0,

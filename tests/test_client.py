@@ -9,13 +9,15 @@ def test_client_parse_roundtrip(dummy_snapshot):
     serialized = dataclasses.asdict(dummy_snapshot)
 
     # Introduce an unexpected extra key to test BUG-5 resolution/resilience
-    serialized["sensors"]["temperatures"].append({
-        "label": "ExtraTemp",
-        "current": 42.0,
-        "high": 80.0,
-        "critical": 90.0,
-        "future_field": "some-value",  # Unexpected key
-    })
+    serialized["sensors"]["temperatures"].append(
+        {
+            "label": "ExtraTemp",
+            "current": 42.0,
+            "high": 80.0,
+            "critical": 90.0,
+            "future_field": "some-value",  # Unexpected key
+        }
+    )
 
     # Add a mock remote collector instance
     client = RemoteCollector(address="http://localhost:9090", api_key="")

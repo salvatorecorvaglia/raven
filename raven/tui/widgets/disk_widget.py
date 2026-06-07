@@ -30,8 +30,7 @@ class DiskWidget(Static):
         # I/O
         io = disk.io
         text.append(
-            f"  I/O  Read: {human_bytes(io.read_bytes)}  "
-            f"Write: {human_bytes(io.write_bytes)}\n",
+            f"  I/O  Read: {human_bytes(io.read_bytes)}  Write: {human_bytes(io.write_bytes)}\n",
             style="dim",
         )
 

@@ -21,7 +21,6 @@ class ProcessTable(DataTable):
     ) -> None:
         from textual.coordinate import Coordinate
 
-
         # Determine sort
         sort_map = {
             "cpu": ("cpu_percent", True),
