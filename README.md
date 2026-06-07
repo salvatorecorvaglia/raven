@@ -1,6 +1,6 @@
 # Raven 🐦‍⬛
 
-**A modern system monitor that works on Linux, BSD, macOS, and Windows.**
+**A system monitor that works on Linux, BSD, macOS, and Windows.**
 
 ---
 
