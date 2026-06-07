@@ -22,7 +22,12 @@ class CpuPlugin(MonitorPlugin):
         return True
 
     def collect(self) -> CpuMetrics:
-        freq = psutil.cpu_freq()
+        freq = None
+        if hasattr(psutil, "cpu_freq"):
+            try:
+                freq = psutil.cpu_freq()
+            except Exception:
+                pass
         # Load average is not available on Windows
         try:
             load1, load5, load15 = os.getloadavg()

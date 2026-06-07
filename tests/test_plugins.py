@@ -12,8 +12,8 @@ from raven.plugins.users import UsersPlugin
 
 @patch("psutil.cpu_percent")
 @patch("psutil.cpu_count")
-@patch("psutil.cpu_freq")
-@patch("psutil.getloadavg")
+@patch("psutil.cpu_freq", create=True)
+@patch("psutil.getloadavg", create=True)
 def test_cpu_plugin(mock_loadavg, mock_freq, mock_count, mock_percent):
     mock_percent.return_value = 15.0
     mock_count.return_value = 4
