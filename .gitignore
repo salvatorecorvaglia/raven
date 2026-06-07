@@ -41,3 +41,19 @@ raven_monitor.egg-info/
 
 # Linting
 .ruff_cache/
+
+# AI Tools
+.openai/
+.chatgpt/
+gpt-config.json
+openai.config.json
+.anthropic/
+.claude/
+claude.config.json
+claude-settings.json
+.prompts/
+.prompt-cache/
+.ai/
+CLAUDE.md
+.gemini/
+GEMINI.md
