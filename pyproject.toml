@@ -55,9 +55,17 @@ where = ["."]
 include = ["raven*"]
 
 [tool.setuptools.package-data]
+"raven" = ["py.typed"]
 "raven.tui" = ["*.tcss"]
 "raven.web" = ["static/*"]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

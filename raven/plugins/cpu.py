@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import os
-import sys
 
 import psutil
 
 from raven.core.models import CpuMetrics
 from raven.plugins.base import MonitorPlugin
+
+# Prime psutil's internal cpu_percent counter so that the first real
+# ``collect()`` call returns a meaningful value instead of 0.0.
+psutil.cpu_percent(interval=None)
+
 
 
 class CpuPlugin(MonitorPlugin):

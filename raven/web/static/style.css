@@ -560,3 +560,76 @@ canvas {
         gap: 0.5rem;
     }
 }
+
+/* ── Metric/Sensor States (reusable) ── */
+.metric-ok { color: var(--accent-green); }
+.metric-warn { color: var(--accent-amber); }
+.metric-crit { color: var(--accent-red); }
+
+.bg-ok { background: var(--accent-green) !important; }
+.bg-warn { background: var(--accent-amber) !important; }
+.bg-crit { background: var(--accent-red) !important; }
+
+/* ── Section header for sensors panel ── */
+.sensor-section-header {
+    font-size: 0.7rem;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+.sensor-section-header:first-child {
+    margin-top: 0;
+}
+
+/* ── Connection toast and dimming ── */
+body.disconnected #dashboard {
+    opacity: 0.65;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+body.disconnected::after {
+    content: "Connection lost. Reconnecting...";
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(20, 27, 45, 0.95);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.15);
+    z-index: 1000;
+    pointer-events: none;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* ── Loading skeletons/shimmer ── */
+body.loading .card-value,
+body.loading .value,
+body.loading .core-bars,
+body.loading tbody,
+body.loading .partition-list,
+body.loading .interface-list,
+body.loading .sensor-list,
+body.loading .user-list,
+body.loading .container-list {
+    color: transparent !important;
+    background: linear-gradient(90deg, var(--border-color) 25%, rgba(255,255,255,0.05) 50%, var(--border-color) 75%) !important;
+    background-size: 200% 100% !important;
+    animation: loading-pulse 1.5s infinite !important;
+    border-radius: 4px;
+}
+@keyframes loading-pulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Users Card layout fix ── */
+#users-card {
+    grid-column: span 2;
+}
+

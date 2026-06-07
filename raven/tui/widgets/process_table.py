@@ -4,29 +4,24 @@ from __future__ import annotations
 
 from textual.widgets import DataTable
 
-from raven.core.models import ProcessInfo, SystemSnapshot
-
-
-def _human_bytes(n: int | float) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if abs(n) < 1024:
-            return f"{n:.0f}{unit}"
-        n /= 1024
-    return f"{n:.0f}TB"
+from raven.core.models import SystemSnapshot
+from raven.core.utils import human_bytes_compact
 
 
 class ProcessTable(DataTable):
     """Process list as a sortable data table."""
-
-    _sort_key: str = "cpu_percent"
-    _sort_reverse: bool = True
 
     def on_mount(self) -> None:
         self.add_columns("PID", "Name", "User", "CPU%", "MEM%", "RSS", "Threads", "Status")
         self.cursor_type = "row"
         self.zebra_stripes = True
 
-    def update_data(self, snap: SystemSnapshot, max_display: int = 25, sort_by: str = "cpu") -> None:
+    def update_data(
+        self, snap: SystemSnapshot, max_display: int = 25, sort_by: str = "cpu"
+    ) -> None:
+        from textual.coordinate import Coordinate
+
+
         # Determine sort
         sort_map = {
             "cpu": ("cpu_percent", True),
@@ -39,18 +34,31 @@ class ProcessTable(DataTable):
         procs = sorted(snap.processes, key=lambda p: getattr(p, key, 0), reverse=rev)
         procs = procs[:max_display]
 
-        self.clear()
-        for p in procs:
-            # Color-code CPU
+        current_row_count = self.row_count
+        target_row_count = len(procs)
+
+        if current_row_count > target_row_count:
+            # Remove extra rows from the end
+            row_keys = list(self.rows.keys())
+            for r_key in row_keys[target_row_count:]:
+                self.remove_row(r_key)
+        elif current_row_count < target_row_count:
+            # Add missing rows
+            for _ in range(target_row_count - current_row_count):
+                self.add_row("", "", "", "", "", "", "", "")
+
+        for row_idx, p in enumerate(procs):
             cpu_str = f"{p.cpu_percent:.1f}"
             mem_str = f"{p.memory_percent:.1f}"
-            self.add_row(
+            values = [
                 str(p.pid),
                 p.name[:25],
                 p.username[:12] if p.username else "—",
                 cpu_str,
                 mem_str,
-                _human_bytes(p.memory_rss),
+                human_bytes_compact(p.memory_rss),
                 str(p.num_threads),
                 p.status[:8],
-            )
+            ]
+            for col_idx, val in enumerate(values):
+                self.update_cell_at(Coordinate(row_idx, col_idx), val)

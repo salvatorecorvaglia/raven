@@ -11,11 +11,10 @@ import datetime
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
 
-from raven.core.collector import Collector
 from raven.config import RavenConfig
-
+from raven.core.collector import Collector
+from raven.core.utils import human_bytes
 
 # ── ASCII Art ────────────────────────────────────────────────────────────────
 
@@ -35,12 +34,7 @@ _RAVEN_ART = r"""
 """
 
 
-def _human_bytes(n: int | float) -> str:
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if abs(n) < 1024:
-            return f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} PB"
+
 
 
 def _color_percent(percent: float) -> str:
@@ -88,18 +82,18 @@ def run_fetch(config: RavenConfig | None = None) -> None:
         lines.append(f"[bold]Load[/bold]     {cpu.load_avg_1:.2f}  {cpu.load_avg_5:.2f}  {cpu.load_avg_15:.2f}")
 
     # Memory
-    lines.append(f"[bold]Memory[/bold]   {_human_bytes(mem.used)} / {_human_bytes(mem.total)}"
+    lines.append(f"[bold]Memory[/bold]   {human_bytes(mem.used)} / {human_bytes(mem.total)}"
                  f" — {_color_percent(mem.percent)}")
 
     # Swap
     if mem.swap_total > 0:
-        lines.append(f"[bold]Swap[/bold]     {_human_bytes(mem.swap_used)} / {_human_bytes(mem.swap_total)}"
+        lines.append(f"[bold]Swap[/bold]     {human_bytes(mem.swap_used)} / {human_bytes(mem.swap_total)}"
                      f" — {_color_percent(mem.swap_percent)}")
 
     # Disk (first partition only for brevity)
     if disk.partitions:
         dp = disk.partitions[0]
-        lines.append(f"[bold]Disk[/bold]     {_human_bytes(dp.used)} / {_human_bytes(dp.total)}"
+        lines.append(f"[bold]Disk[/bold]     {human_bytes(dp.used)} / {human_bytes(dp.total)}"
                      f" — {_color_percent(dp.percent)}  ({dp.mountpoint})")
 
     # Network (first non-loopback interface with an address)
@@ -160,7 +154,7 @@ def run_fetch(config: RavenConfig | None = None) -> None:
     art_width = max(len(line) for line in art_lines) + 4
 
     combined: list[str] = []
-    for art, info in zip(art_lines, info_lines):
+    for art, info in zip(art_lines, info_lines, strict=False):
         padded_art = art.ljust(art_width)
         combined.append(f"[bold magenta]{padded_art}[/bold magenta]{info}")
 

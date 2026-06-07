@@ -8,6 +8,7 @@ Keybindings:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -18,13 +19,17 @@ from textual.widgets import Footer
 from raven.config import RavenConfig
 from raven.core.collector import Collector
 from raven.core.models import SystemSnapshot
-from raven.tui.widgets.header_widget import HeaderWidget
+from raven.core.protocols import MetricCollector
+from raven.tui.widgets.container_widget import ContainerWidget
 from raven.tui.widgets.cpu_widget import CpuWidget
-from raven.tui.widgets.memory_widget import MemoryWidget
 from raven.tui.widgets.disk_widget import DiskWidget
+from raven.tui.widgets.header_widget import HeaderWidget
+from raven.tui.widgets.memory_widget import MemoryWidget
 from raven.tui.widgets.network_widget import NetworkWidget
 from raven.tui.widgets.process_table import ProcessTable
 from raven.tui.widgets.sensor_widget import SensorWidget
+
+log = logging.getLogger(__name__)
 
 # Sort cycle for processes
 _SORT_CYCLE = ["cpu", "memory", "pid", "name"]
@@ -46,7 +51,7 @@ class RavenApp(App):
 
     def __init__(
         self,
-        collector: Collector | None = None,
+        collector: MetricCollector | None = None,
         config: RavenConfig | None = None,
         **kwargs,
     ) -> None:
@@ -54,7 +59,7 @@ class RavenApp(App):
         from raven.config import load_config
 
         self._config = config or load_config()
-        self._collector = collector or Collector(self._config)
+        self._collector: MetricCollector = collector or Collector(self._config)
         self._sort_index = 0
 
     def compose(self) -> ComposeResult:
@@ -65,7 +70,8 @@ class RavenApp(App):
             yield ProcessTable(id="process-panel")
             yield DiskWidget(id="disk-panel")
             yield NetworkWidget(id="network-panel")
-            yield SensorWidget(id="info-panel")
+            yield SensorWidget(id="sensor-panel")
+            yield ContainerWidget(id="container-panel")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -80,8 +86,12 @@ class RavenApp(App):
         self.run_worker(self._async_tick, exclusive=True)
 
     async def _async_tick(self) -> None:
-        snap = await self._collector.collect_async()
-        self._update_widgets(snap)
+        try:
+            snap = await self._collector.collect_async()
+            self._update_widgets(snap)
+        except Exception:
+            log.exception("Metric collection failed")
+            self.notify("⚠ Collection failed — data may be stale", severity="warning")
 
     def _update_widgets(self, snap: SystemSnapshot) -> None:
         """Push a snapshot to all dashboard widgets."""
@@ -100,8 +110,11 @@ class RavenApp(App):
         net: NetworkWidget = self.query_one("#network-panel", NetworkWidget)
         net.update_data(snap)
 
-        sensor: SensorWidget = self.query_one("#info-panel", SensorWidget)
+        sensor: SensorWidget = self.query_one("#sensor-panel", SensorWidget)
         sensor.update_data(snap)
+
+        container: ContainerWidget = self.query_one("#container-panel", ContainerWidget)
+        container.update_data(snap)
 
         proc: ProcessTable = self.query_one("#process-panel", ProcessTable)
         sort_by = _SORT_CYCLE[self._sort_index]

@@ -7,10 +7,10 @@ call runs every plugin and assembles a ``SystemSnapshot``.
 from __future__ import annotations
 
 import asyncio
+import atexit
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from raven.config import RavenConfig, load_config
@@ -20,19 +20,13 @@ from raven.core.models import (
     DiskMetrics,
     MemoryMetrics,
     NetworkMetrics,
-    ProcessInfo,
     SensorMetrics,
     SystemInfoMetrics,
     SystemSnapshot,
-    UserInfo,
 )
 from raven.core.plugin_manager import get_enabled_plugins
-from raven.plugins.base import MonitorPlugin
 
 log = logging.getLogger(__name__)
-
-# Thread pool for running blocking psutil calls off the event loop
-_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="raven-collector")
 
 
 class Collector:
@@ -41,18 +35,33 @@ class Collector:
     def __init__(self, config: RavenConfig | None = None) -> None:
         self.config = config or load_config()
         self.plugins = get_enabled_plugins(self.config)
+        # Instance-level executor — properly cleaned up on shutdown
+        self._executor = ThreadPoolExecutor(
+            max_workers=min(len(self.plugins), 8) or 1,
+            thread_name_prefix="raven-collector",
+        )
+        atexit.register(self._shutdown)
         log.info(
             "Collector initialised with %d plugins: %s",
             len(self.plugins),
             [p.name for p in self.plugins],
         )
 
+    def _shutdown(self) -> None:
+        """Shut down the thread pool on interpreter exit."""
+        self._executor.shutdown(wait=False)
+
     def collect(self) -> SystemSnapshot:
-        """Run all plugins synchronously and return a snapshot."""
+        """Run all plugins in parallel and return a snapshot."""
         results: dict[str, Any] = {}
-        for plugin in self.plugins:
+        futures = {
+            self._executor.submit(plugin.collect): plugin
+            for plugin in self.plugins
+        }
+        for future in as_completed(futures):
+            plugin = futures[future]
             try:
-                results[plugin.name] = plugin.collect()
+                results[plugin.name] = future.result(timeout=10)
             except Exception:
                 log.exception("Plugin %s failed during collection", plugin.name)
 
@@ -61,7 +70,7 @@ class Collector:
     async def collect_async(self) -> SystemSnapshot:
         """Run collection in a thread executor (non-blocking for async apps)."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(_executor, self.collect)
+        return await loop.run_in_executor(None, self.collect)
 
     # ── private ──────────────────────────────────────────────────────────
 

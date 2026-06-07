@@ -83,14 +83,15 @@ sensors = true
 containers = true
 
 [web]
-host = "0.0.0.0"
+host = "127.0.0.1"       # local bind (warning triggered if set to 0.0.0.0 without api_key)
 port = 8080
 api_key = ""             # empty = no auth
 
 [remote]
-host = "0.0.0.0"
+host = "127.0.0.1"       # local bind (warning triggered if set to 0.0.0.0 without api_key)
 port = 9090
 api_key = ""
+
 
 [export]
 format = "text"          # text | csv | json

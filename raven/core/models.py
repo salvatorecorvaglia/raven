@@ -10,7 +10,6 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-
 # ── CPU ──────────────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True, slots=True)

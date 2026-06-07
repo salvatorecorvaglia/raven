@@ -3,58 +3,87 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
+import time
 from typing import Any
 
 from raven.core.models import ContainerInfo, ContainerMetrics
 from raven.plugins.base import MonitorPlugin
+
+log = logging.getLogger(__name__)
+
+# Maximum stdout size from LXC commands (10 MB) to prevent OOM
+_LXC_MAX_OUTPUT = 10 * 1024 * 1024
 
 
 class ContainersPlugin(MonitorPlugin):
     name = "containers"
     category = "containers"
 
+    def __init__(self) -> None:
+        super().__init__()
+        # Cache Docker/LXC availability to avoid repeated expensive checks
+        self._docker_ok: bool | None = None
+        self._lxc_ok: bool | None = None
+        self._last_check: float = 0
+        self._cache_ttl: float = 30.0  # re-check every 30 seconds
+        self._docker_client: Any = None
+
     def is_available(self) -> bool:
-        return self._docker_available() or self._lxc_available()
+        self._refresh_availability()
+        return bool(self._docker_ok or self._lxc_ok)
 
     def collect(self) -> ContainerMetrics:
-        docker_ok = self._docker_available()
-        lxc_ok = self._lxc_available()
+        self._refresh_availability()
 
         containers: list[ContainerInfo] = []
 
-        if docker_ok:
+        if self._docker_ok:
             containers.extend(self._collect_docker())
-        if lxc_ok:
+        if self._lxc_ok:
             containers.extend(self._collect_lxc())
 
         return ContainerMetrics(
             containers=containers,
-            docker_available=docker_ok,
-            lxc_available=lxc_ok,
+            docker_available=bool(self._docker_ok),
+            lxc_available=bool(self._lxc_ok),
         )
+
+    # ── Availability caching ─────────────────────────────────────────
+
+    def _refresh_availability(self) -> None:
+        """Re-check Docker/LXC availability if the cache has expired."""
+        now = time.monotonic()
+        if self._docker_ok is not None and (now - self._last_check) < self._cache_ttl:
+            return
+
+        self._docker_ok = self._check_docker()
+        self._lxc_ok = shutil.which("lxc") is not None
+        self._last_check = now
+
+    def _check_docker(self) -> bool:
+        try:
+            import docker  # noqa: F401
+            if self._docker_client is None:
+                self._docker_client = docker.from_env()
+            self._docker_client.ping()
+            return True
+        except Exception:
+            self._docker_client = None
+            return False
 
     # ── Docker ───────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _docker_available() -> bool:
-        try:
-            import docker  # noqa: F401
-            client = docker.from_env()
-            client.ping()
-            return True
-        except Exception:
-            return False
-
-    @staticmethod
-    def _collect_docker() -> list[ContainerInfo]:
+    def _collect_docker(self) -> list[ContainerInfo]:
         containers: list[ContainerInfo] = []
         try:
-            import docker
+            if self._docker_client is None:
+                import docker
+                self._docker_client = docker.from_env()
 
-            client = docker.from_env()
-            for c in client.containers.list(all=True):
+            for c in self._docker_client.containers.list(all=True):
                 containers.append(
                     ContainerInfo(
                         name=c.name or "",
@@ -65,14 +94,10 @@ class ContainersPlugin(MonitorPlugin):
                     )
                 )
         except Exception:
-            pass
+            log.debug("Docker collection failed", exc_info=True)
         return containers
 
     # ── LXC ──────────────────────────────────────────────────────────────
-
-    @staticmethod
-    def _lxc_available() -> bool:
-        return shutil.which("lxc") is not None
 
     @staticmethod
     def _collect_lxc() -> list[ContainerInfo]:
@@ -87,7 +112,13 @@ class ContainersPlugin(MonitorPlugin):
             if result.returncode != 0:
                 return containers
 
-            data: list[dict[str, Any]] = json.loads(result.stdout)
+            # SEC-4: Guard against oversized output
+            stdout = result.stdout
+            if len(stdout) > _LXC_MAX_OUTPUT:
+                log.warning("LXC output exceeded %d bytes, truncating", _LXC_MAX_OUTPUT)
+                return containers
+
+            data: list[dict[str, Any]] = json.loads(stdout)
             for entry in data:
                 containers.append(
                     ContainerInfo(
@@ -99,7 +130,7 @@ class ContainersPlugin(MonitorPlugin):
                     )
                 )
         except Exception:
-            pass
+            log.debug("LXC collection failed", exc_info=True)
         return containers
 
 

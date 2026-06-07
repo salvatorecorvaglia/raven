@@ -2,20 +2,11 @@
 
 from __future__ import annotations
 
-from collections import deque
-
 from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-
-
-def _human_bytes(n: int | float) -> str:
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if abs(n) < 1024:
-            return f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} PB"
+from raven.core.utils import human_bytes
 
 
 class NetworkWidget(Static):
@@ -45,8 +36,8 @@ class NetworkWidget(Static):
 
             addr = iface.addrs[0] if iface.addrs else "—"
             text.append(f"  {iface.name:<10} ", style="bold")
-            text.append(f"▲ {_human_bytes(rate_s)}/s ", style="cyan")
-            text.append(f"▼ {_human_bytes(rate_r)}/s", style="green")
+            text.append(f"▲ {human_bytes(rate_s)}/s ", style="cyan")
+            text.append(f"▼ {human_bytes(rate_r)}/s", style="green")
             text.append(f"  {addr}\n", style="dim")
 
         text.append(f"  Connections: {net.connections_count}\n", style="dim")

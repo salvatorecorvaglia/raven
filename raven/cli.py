@@ -12,7 +12,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import sys
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -127,18 +126,19 @@ def _cmd_print(args: argparse.Namespace, config) -> None:
         from raven.export.csv_export import CsvExporter
         exporter = CsvExporter()
     else:
-        from raven.export.text import TextExporter
+        from raven.export.text_export import TextExporter
         exporter = TextExporter()
 
     print(exporter.format(snapshot, modules))
 
 
 def _cmd_web(args: argparse.Namespace, config) -> None:
-    from raven.web.server import create_app
     import uvicorn
 
-    host = args.host or config.web.host
-    port = args.port or config.web.port
+    from raven.web.server import create_app
+
+    host = args.host if args.host is not None else config.web.host
+    port = args.port if args.port is not None else config.web.port
 
     app = create_app(config)
     print(f"🐦‍⬛ Raven web dashboard → http://{host}:{port}")
@@ -146,11 +146,12 @@ def _cmd_web(args: argparse.Namespace, config) -> None:
 
 
 def _cmd_serve(args: argparse.Namespace, config) -> None:
-    from raven.remote.server import create_remote_app
     import uvicorn
 
-    host = args.host or config.remote.host
-    port = args.port or config.remote.port
+    from raven.remote.server import create_remote_app
+
+    host = args.host if args.host is not None else config.remote.host
+    port = args.port if args.port is not None else config.remote.port
 
     app = create_remote_app(config)
     print(f"🐦‍⬛ Raven remote agent → http://{host}:{port}")

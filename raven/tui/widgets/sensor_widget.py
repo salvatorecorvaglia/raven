@@ -1,4 +1,4 @@
-"""Sensor widget — temperatures, fans, battery."""
+"""Sensor widget — temperatures, fans, battery, users."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _temp_color(temp: float, high: float | None = None, crit: float | None = Non
 
 
 class SensorWidget(Static):
-    """Sensors panel — temperatures, fans, battery."""
+    """Sensors panel — temperatures, fans, battery, users."""
 
     def update_data(self, snap: SystemSnapshot) -> None:
         sensors = snap.sensors
@@ -50,21 +50,11 @@ class SensorWidget(Static):
             color = "green" if (bat.percent or 0) > 20 else "red"
             text.append(f"  {bat.percent:.0f}% {plugged}\n", style=color)
 
-        # Users + Containers summary
+        # Users
         if snap.users:
             user_names = list({u.name for u in snap.users})[:5]
             text.append("  Users\n", style="bold cyan")
             text.append(f"  {', '.join(user_names)}\n", style="")
-
-        if snap.containers.containers:
-            running = sum(1 for c in snap.containers.containers if c.status in ("running", "up"))
-            total = len(snap.containers.containers)
-            text.append("  Containers\n", style="bold cyan")
-            text.append(f"  {running}/{total} running\n", style="green" if running else "dim")
-            for c in snap.containers.containers[:4]:
-                status_color = "green" if c.status in ("running", "up") else "yellow"
-                text.append(f"  {c.name[:16]:<18}", style="")
-                text.append(f"{c.status}\n", style=status_color)
 
         if not text.plain.strip():
             text.append("  No sensor data\n", style="dim")

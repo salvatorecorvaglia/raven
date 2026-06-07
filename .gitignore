@@ -38,3 +38,6 @@ MANIFEST
 
 # Raven
 raven_monitor.egg-info/
+
+# Linting
+.ruff_cache/

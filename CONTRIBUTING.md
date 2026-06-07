@@ -81,6 +81,14 @@ Follow these steps to set up Raven for development on your machine:
    raven fetch
    ```
 
+## Running Tests
+
+We use [pytest](https://docs.pytest.org/) for running the test suite. After making any changes, please verify that all tests pass before submitting a pull request:
+
+```bash
+pytest
+```
+
 ## Style & Quality Guidelines
 
 We use [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. 

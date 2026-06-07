@@ -120,10 +120,19 @@ class RemoteCollector:
         ]
 
         # Sensors
-        temps = [TemperatureReading(**t) for t in sensor_data.get("temperatures", [])]
-        fans = [FanReading(**f) for f in sensor_data.get("fans", [])]
+        temps = [
+            TemperatureReading(**{k: v for k, v in t.items() if k in TemperatureReading.__dataclass_fields__})
+            for t in sensor_data.get("temperatures", [])
+        ]
+        fans = [
+            FanReading(**{k: v for k, v in f.items() if k in FanReading.__dataclass_fields__})
+            for f in sensor_data.get("fans", [])
+        ]
         bat_raw = sensor_data.get("battery")
-        battery = BatteryInfo(**bat_raw) if bat_raw else None
+        battery = (
+            BatteryInfo(**{k: v for k, v in bat_raw.items() if k in BatteryInfo.__dataclass_fields__})
+            if bat_raw else None
+        )
         sensors = SensorMetrics(temperatures=temps, fans=fans, battery=battery)
 
         # Containers

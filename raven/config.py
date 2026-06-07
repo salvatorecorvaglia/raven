@@ -9,11 +9,13 @@ Search order (first match wins):
 
 from __future__ import annotations
 
-import os
+import logging
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
@@ -35,13 +37,13 @@ _DEFAULTS: dict[str, Any] = {
     },
     "web": {
         "enabled": False,
-        "host": "0.0.0.0",
+        "host": "127.0.0.1",
         "port": 8080,
         "api_key": "",
     },
     "remote": {
         "enabled": False,
-        "host": "0.0.0.0",
+        "host": "127.0.0.1",
         "port": 9090,
         "api_key": "",
     },
@@ -78,7 +80,7 @@ class ModulesConfig:
 @dataclass
 class WebConfig:
     enabled: bool = False
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8080
     api_key: str = ""
 
@@ -86,7 +88,7 @@ class WebConfig:
 @dataclass
 class RemoteConfig:
     enabled: bool = False
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 9090
     api_key: str = ""
 
@@ -142,14 +144,41 @@ def _find_config_file(explicit_path: str | None = None) -> Path | None:
 
 
 def _dict_to_config(data: dict[str, Any]) -> RavenConfig:
-    """Convert a merged dict to a ``RavenConfig`` instance."""
+    """Convert a merged dict to a ``RavenConfig`` instance.
+
+    Unknown keys in each section are filtered out with a warning.
+    """
+    section_classes: dict[str, type] = {
+        "general": GeneralConfig,
+        "modules": ModulesConfig,
+        "web": WebConfig,
+        "remote": RemoteConfig,
+        "export": ExportConfig,
+        "processes": ProcessesConfig,
+    }
+
+    sections: dict[str, Any] = {}
+    for section_name, cls in section_classes.items():
+        raw = data.get(section_name, {})
+        valid_keys = {f.name for f in fields(cls)}
+        filtered: dict[str, Any] = {}
+        for k, v in raw.items():
+            if k in valid_keys:
+                filtered[k] = v
+            else:
+                log.warning(
+                    "Unknown config key '%s' in [%s] — ignoring",
+                    k, section_name,
+                )
+        sections[section_name] = cls(**filtered)
+
     return RavenConfig(
-        general=GeneralConfig(**data.get("general", {})),
-        modules=ModulesConfig(**data.get("modules", {})),
-        web=WebConfig(**data.get("web", {})),
-        remote=RemoteConfig(**data.get("remote", {})),
-        export=ExportConfig(**data.get("export", {})),
-        processes=ProcessesConfig(**data.get("processes", {})),
+        general=sections["general"],
+        modules=sections["modules"],
+        web=sections["web"],
+        remote=sections["remote"],
+        export=sections["export"],
+        processes=sections["processes"],
     )
 
 
