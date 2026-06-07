@@ -2,7 +2,7 @@
 
 First off, thank you for taking the time to contribute! It's people like you who make the open-source community such an amazing place to learn, inspire, and create.
 
-The following guidelines will help you get started with contributing to **Raven**, a modern system monitor for Linux, BSD, macOS, and Windows.
+The following guidelines will help you get started with contributing to **Raven**, a system monitor for Linux, BSD, macOS, and Windows.
 
 ## Table of Contents
 
