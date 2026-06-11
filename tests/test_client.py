@@ -49,7 +49,7 @@ def test_client_parse_robustness():
     }
     client = RemoteCollector(address="http://localhost:9090", api_key="")
     parsed = client._parse(partial_data)
-    
+
     assert isinstance(parsed, SystemSnapshot)
     assert parsed.timestamp == 12345.0
     assert parsed.cpu.percent_overall == 0.0
