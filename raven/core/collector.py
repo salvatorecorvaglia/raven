@@ -51,6 +51,17 @@ class Collector:
         """Shut down the thread pool on interpreter exit."""
         self._executor.shutdown(wait=False)
 
+    def close(self) -> None:
+        """Explicitly shut down the executor and unregister from atexit to prevent leaks."""
+        try:
+            atexit.unregister(self._shutdown)
+        except Exception:
+            pass
+        self._shutdown()
+
+    def __del__(self) -> None:
+        self.close()
+
     def collect(self) -> SystemSnapshot:
         """Run all plugins in parallel and return a snapshot."""
         results: dict[str, Any] = {}

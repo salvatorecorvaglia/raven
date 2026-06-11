@@ -97,6 +97,9 @@ def test_network_plugin(mock_conns, mock_addrs, mock_io):
 def test_processes_plugin(mock_proc_iter):
     # Mocking two raw processes
     proc1 = MagicMock()
+    proc1.pid = 1
+    proc1.cpu_percent.return_value = 10.0
+    proc1.memory_percent.return_value = 5.0
     proc1.info = {"pid": 1, "cpu_percent": 10.0, "memory_percent": 5.0}
     proc1.as_dict.return_value = {
         "name": "proc1",
@@ -162,7 +165,7 @@ def test_sensors_plugin(mock_bat, mock_fans, mock_temps):
         "cpu_thermal": [MagicMock(label="Core 0", current=45.0, high=80.0, critical=90.0)]
     }
     mock_fans.return_value = {"fan1": [MagicMock(label="Fan 1", current=2000)]}
-    mock_bat.return_value = MagicMock(percent=95.0, secs_left=-1, power_plugged=True)
+    mock_bat.return_value = MagicMock(percent=95.0, secsleft=-1, power_plugged=True)
 
     plugin = SensorsPlugin()
     assert plugin.is_available() is True
@@ -170,3 +173,46 @@ def test_sensors_plugin(mock_bat, mock_fans, mock_temps):
     assert len(metrics.temperatures) == 1
     assert metrics.temperatures[0].label == "Core 0"
     assert metrics.battery.percent == 95.0
+    assert metrics.battery.secs_left is None
+
+
+@patch("psutil.process_iter")
+def test_processes_plugin_caching(mock_proc_iter):
+    proc = MagicMock()
+    proc.pid = 42
+    proc.cpu_percent.return_value = 25.0
+    proc.memory_percent.return_value = 12.0
+    proc.info = {"pid": 42, "cpu_percent": 25.0, "memory_percent": 12.0}
+    proc.as_dict.return_value = {
+        "name": "cached_proc",
+        "username": "user",
+        "status": "running",
+        "cmdline": ["run"],
+        "num_threads": 4,
+        "memory_info": MagicMock(rss=8000),
+    }
+
+    mock_proc_iter.return_value = [proc]
+
+    plugin = ProcessesPlugin()
+    assert len(plugin._proc_cache) == 0
+
+    # First collect: populates cache
+    metrics1 = plugin.collect()
+    assert len(metrics1) == 1
+    assert metrics1[0].pid == 42
+    assert len(plugin._proc_cache) == 1
+    assert plugin._proc_cache[42] is proc
+    proc.cpu_percent.assert_called_with(interval=None)
+
+    # Second collect: process continues using cache
+    metrics2 = plugin.collect()
+    assert len(metrics2) == 1
+    assert metrics2[0].pid == 42
+    assert len(plugin._proc_cache) == 1
+
+    # Third collect: process disappears, cache should be cleared
+    mock_proc_iter.return_value = []
+    metrics3 = plugin.collect()
+    assert len(metrics3) == 0
+    assert len(plugin._proc_cache) == 0

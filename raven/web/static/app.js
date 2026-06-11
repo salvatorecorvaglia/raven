@@ -637,7 +637,10 @@
     // ── WebSocket ───────────────────────────────────────────────────────
     function connect() {
         const proto = location.protocol === "https:" ? "wss:" : "ws:";
-        const url = proto + "//" + location.host + "/ws/live";
+        const params = new URLSearchParams(location.search);
+        const apiKey = params.get("api_key") || "";
+        const wsParam = apiKey ? `?api_key=${encodeURIComponent(apiKey)}` : "";
+        const url = proto + "//" + location.host + "/ws/live" + wsParam;
         ws = new WebSocket(url);
 
         ws.onopen = () => {

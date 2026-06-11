@@ -77,7 +77,12 @@ def get_enabled_plugins(config: RavenConfig) -> list[MonitorPlugin]:
         if cls is None:
             continue
 
-        instance: MonitorPlugin = cls()
+        # Try to pass the configuration if the plugin constructor supports it
+        try:
+            instance: MonitorPlugin = cls(config=config)
+        except TypeError:
+            instance: MonitorPlugin = cls()
+
         if instance.is_available():
             plugins.append(instance)
             log.debug("Loaded plugin: %s", instance.name)

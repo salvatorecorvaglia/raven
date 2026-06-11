@@ -77,13 +77,13 @@ class RemoteCollector:
     @staticmethod
     def _parse(data: dict) -> SystemSnapshot:
         """Convert a JSON dict back into a ``SystemSnapshot``."""
-        cpu_data = data.get("cpu", {})
-        mem_data = data.get("memory", {})
-        disk_data = data.get("disk", {})
-        net_data = data.get("network", {})
-        si_data = data.get("system_info", {})
-        sensor_data = data.get("sensors", {})
-        ct_data = data.get("containers", {})
+        cpu_data = data.get("cpu") or {}
+        mem_data = data.get("memory") or {}
+        disk_data = data.get("disk") or {}
+        net_data = data.get("network") or {}
+        si_data = data.get("system_info") or {}
+        sensor_data = data.get("sensors") or {}
+        ct_data = data.get("containers") or {}
 
         # CPU
         cpu = CpuMetrics(
@@ -96,8 +96,8 @@ class RemoteCollector:
         )
 
         # Disk
-        parts = [DiskPartition(**p) for p in disk_data.get("partitions", [])]
-        io_raw = disk_data.get("io", {})
+        parts = [DiskPartition(**p) for p in (disk_data.get("partitions") or [])]
+        io_raw = disk_data.get("io") or {}
         disk_io = DiskIO(**{k: v for k, v in io_raw.items() if k in DiskIO.__dataclass_fields__})
         disk = DiskMetrics(partitions=parts, io=disk_io)
 
@@ -106,23 +106,23 @@ class RemoteCollector:
             NetworkInterface(
                 **{k: v for k, v in i.items() if k in NetworkInterface.__dataclass_fields__}
             )
-            for i in net_data.get("interfaces", [])
+            for i in (net_data.get("interfaces") or [])
         ]
         network = NetworkMetrics(
             interfaces=ifaces,
-            connections_count=net_data.get("connections_count", 0),
+            connections_count=net_data.get("connections_count") or 0,
         )
 
         # Processes
         procs = [
             ProcessInfo(**{k: v for k, v in p.items() if k in ProcessInfo.__dataclass_fields__})
-            for p in data.get("processes", [])
+            for p in (data.get("processes") or [])
         ]
 
         # Users
         users = [
             UserInfo(**{k: v for k, v in u.items() if k in UserInfo.__dataclass_fields__})
-            for u in data.get("users", [])
+            for u in (data.get("users") or [])
         ]
 
         # Sensors
@@ -130,11 +130,11 @@ class RemoteCollector:
             TemperatureReading(
                 **{k: v for k, v in t.items() if k in TemperatureReading.__dataclass_fields__}
             )
-            for t in sensor_data.get("temperatures", [])
+            for t in (sensor_data.get("temperatures") or [])
         ]
         fans = [
             FanReading(**{k: v for k, v in f.items() if k in FanReading.__dataclass_fields__})
-            for f in sensor_data.get("fans", [])
+            for f in (sensor_data.get("fans") or [])
         ]
         bat_raw = sensor_data.get("battery")
         battery = (
@@ -149,12 +149,12 @@ class RemoteCollector:
         # Containers
         containers_list = [
             ContainerInfo(**{k: v for k, v in c.items() if k in ContainerInfo.__dataclass_fields__})
-            for c in ct_data.get("containers", [])
+            for c in (ct_data.get("containers") or [])
         ]
         containers = ContainerMetrics(
             containers=containers_list,
-            docker_available=ct_data.get("docker_available", False),
-            lxc_available=ct_data.get("lxc_available", False),
+            docker_available=bool(ct_data.get("docker_available")),
+            lxc_available=bool(ct_data.get("lxc_available")),
         )
 
         # System info

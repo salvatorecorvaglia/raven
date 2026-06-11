@@ -50,10 +50,11 @@ def text_sparkline(history, color: str = "green") -> str:
     """
     if len(history) < 2:
         return ""
-    spark_chars = "▁▂▃▄▅▆▇█"
+    spark_chars = " ▂▃▄▅▆▇█"
     max_val = max(history) or 1
     spark = ""
     for v in history:
         idx = int(v / max_val * (len(spark_chars) - 1))
-        spark += spark_chars[min(idx, len(spark_chars) - 1)]
+        idx = max(0, min(idx, len(spark_chars) - 1))
+        spark += spark_chars[idx]
     return spark

@@ -40,15 +40,17 @@ class CpuWidget(Static):
         text.append_text(_bar(cpu.percent_overall))
         text.append("\n")
 
-        # Per-core bars (compact: 2 per line)
+        # Per-core bars (compact: 2 or 4 per line depending on core count)
         cores = cpu.percent_per_core
-        for i in range(0, len(cores), 2):
+        cols = 4 if len(cores) > 16 else 2
+        bar_width = 6 if cols == 4 else 10
+        for i in range(0, len(cores), cols):
             line = Text("  ")
-            for j in range(2):
+            for j in range(cols):
                 idx = i + j
                 if idx < len(cores):
                     line.append(f"C{idx:<2} ")
-                    line.append_text(_bar(cores[idx], width=10))
+                    line.append_text(_bar(cores[idx], width=bar_width))
                     line.append("  ")
             text.append_text(line)
             text.append("\n")

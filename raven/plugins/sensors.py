@@ -72,10 +72,14 @@ class SensorsPlugin(MonitorPlugin):
             bat = psutil.sensors_battery()
             if bat is None:
                 return None
+            unknown = getattr(psutil, "POWER_TIME_UNKNOWN", -1)
+            secs_left = bat.secsleft
+            if secs_left in (psutil.POWER_TIME_UNLIMITED, unknown) or (secs_left is not None and secs_left < 0):
+                secs_left = None
             return BatteryInfo(
                 percent=bat.percent,
                 power_plugged=bat.power_plugged,
-                secs_left=bat.secsleft if bat.secsleft != psutil.POWER_TIME_UNLIMITED else None,
+                secs_left=secs_left,
             )
         except (AttributeError, OSError):
             return None
