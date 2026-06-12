@@ -17,7 +17,7 @@ class NetworkWidget(Static):
         self._prev_sent: dict[str, int] = {}
         self._prev_recv: dict[str, int] = {}
 
-    def update_data(self, snap: SystemSnapshot) -> None:
+    def update_data(self, snap: SystemSnapshot, refresh_interval: float = 2.0) -> None:
         net = snap.network
         text = Text()
         text.append("  Network\n", style="bold cyan")
@@ -26,11 +26,15 @@ class NetworkWidget(Static):
             if iface.name.startswith("lo"):
                 continue
 
-            # Calculate rates
+            # Calculate per-second rates
             prev_s = self._prev_sent.get(iface.name, iface.bytes_sent)
             prev_r = self._prev_recv.get(iface.name, iface.bytes_recv)
-            rate_s = max(0, iface.bytes_sent - prev_s)
-            rate_r = max(0, iface.bytes_recv - prev_r)
+            delta_s = max(0, iface.bytes_sent - prev_s)
+            delta_r = max(0, iface.bytes_recv - prev_r)
+            # Avoid division by zero; convert delta-per-interval to delta-per-second
+            interval = max(refresh_interval, 0.1)
+            rate_s = delta_s / interval
+            rate_r = delta_r / interval
             self._prev_sent[iface.name] = iface.bytes_sent
             self._prev_recv[iface.name] = iface.bytes_recv
 
@@ -42,3 +46,4 @@ class NetworkWidget(Static):
 
         text.append(f"  Connections: {net.connections_count}\n", style="dim")
         self.update(text)
+

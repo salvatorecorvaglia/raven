@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import datetime
 
-from rich.console import Console
-
 from raven.core.models import SystemSnapshot
 from raven.core.utils import human_bytes
 from raven.export.base import BaseExporter
@@ -21,7 +19,6 @@ class TextExporter(BaseExporter):
     name = "text"
 
     def format(self, snapshot: SystemSnapshot, modules: list[str] | None = None) -> str:
-        Console(file=None, force_terminal=True, width=100)
         parts: list[str] = []
 
         show_all = modules is None

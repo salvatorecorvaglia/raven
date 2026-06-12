@@ -59,9 +59,6 @@ class Collector:
             pass
         self._shutdown()
 
-    def __del__(self) -> None:
-        self.close()
-
     def collect(self) -> SystemSnapshot:
         """Run all plugins in parallel and return a snapshot."""
         results: dict[str, Any] = {}
@@ -84,11 +81,14 @@ class Collector:
 
     @staticmethod
     def _assemble(results: dict[str, Any]) -> SystemSnapshot:
-        """Map plugin results to the ``SystemSnapshot`` fields."""
-        # Sort processes by CPU usage descending
+        """Map plugin results to the ``SystemSnapshot`` fields.
+
+        Note: processes are NOT sorted here — consumers (TUI, web, exporters)
+        apply their own sort based on the user's ``config.processes.sort_by``.
+        """
         procs = results.get("processes", [])
-        if isinstance(procs, list):
-            procs = sorted(procs, key=lambda p: p.cpu_percent, reverse=True)
+        if not isinstance(procs, list):
+            procs = []
 
         return SystemSnapshot(
             timestamp=time.time(),

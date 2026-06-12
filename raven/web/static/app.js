@@ -639,15 +639,26 @@
         const proto = location.protocol === "https:" ? "wss:" : "ws:";
         const params = new URLSearchParams(location.search);
         const apiKey = params.get("api_key") || "";
-        const wsParam = apiKey ? `?api_key=${encodeURIComponent(apiKey)}` : "";
-        const url = proto + "//" + location.host + "/ws/live" + wsParam;
+        const url = proto + "//" + location.host + "/ws/live";
         ws = new WebSocket(url);
 
         ws.onopen = () => {
+            // Send API key as first message (avoids leaking in URL/logs)
+            if (apiKey) {
+                ws.send(apiKey);
+            }
             const badge = document.getElementById("status-badge");
             badge.textContent = "Live";
             badge.classList.add("connected");
             document.body.classList.remove("disconnected");
+
+            // Fetch version from health endpoint
+            fetch("/health")
+                .then((r) => r.json())
+                .then((d) => {
+                    document.getElementById("app-version").textContent = "v" + (d.version || "?");
+                })
+                .catch(() => {});
         };
 
         ws.onmessage = (event) => {

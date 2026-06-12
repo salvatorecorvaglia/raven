@@ -19,7 +19,5 @@ class JsonExporter(BaseExporter):
             for mod in modules:
                 if mod in data:
                     filtered[mod] = data[mod]
-                elif mod == "system_info" and "system_info" in data:
-                    filtered["system_info"] = data["system_info"]
             data = filtered
         return json.dumps(data, indent=2, default=str)

@@ -108,7 +108,7 @@ class RavenApp(App):
         disk.update_data(snap)
 
         net: NetworkWidget = self.query_one("#network-panel", NetworkWidget)
-        net.update_data(snap)
+        net.update_data(snap, refresh_interval=self._config.general.refresh_interval)
 
         sensor: SensorWidget = self.query_one("#sensor-panel", SensorWidget)
         sensor.update_data(snap)

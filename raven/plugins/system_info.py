@@ -40,7 +40,7 @@ class SystemInfoPlugin(MonitorPlugin):
             hostname=platform.node(),
             os_name=platform.system(),
             os_version=os_version,
-            os_release=platform.release(),
+            os_release=platform.platform(),
             kernel=platform.release(),
             architecture=platform.machine(),
             uptime_seconds=uptime,

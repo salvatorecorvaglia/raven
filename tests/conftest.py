@@ -98,7 +98,7 @@ def dummy_snapshot():
         sensors=SensorMetrics(
             temperatures=[],
             fans=[],
-            battery=BatteryInfo(percent=95.0, secs_left=-1, power_plugged=True),
+            battery=BatteryInfo(percent=95.0, secs_left=None, power_plugged=True),
         ),
         users=[],
         containers=ContainerMetrics(

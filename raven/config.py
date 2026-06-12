@@ -130,10 +130,20 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 def _find_config_file(explicit_path: str | None = None) -> Path | None:
-    """Locate the first existing config file in search order."""
+    """Locate the first existing config file in search order.
+
+    Raises
+    ------
+    FileNotFoundError
+        If *explicit_path* is given but does not point to an existing file.
+    """
     if explicit_path:
         p = Path(explicit_path)
-        return p if p.is_file() else None
+        if not p.is_file():
+            raise FileNotFoundError(
+                f"Config file not found: {explicit_path!r}"
+            )
+        return p
 
     candidates = [
         Path.cwd() / "raven.toml",

@@ -43,7 +43,7 @@ def color_for_percent(pct: float, thresholds: tuple[float, float] = (50.0, 80.0)
     return "red"
 
 
-def text_sparkline(history, color: str = "green") -> str:
+def text_sparkline(history) -> str:
     """Render a text-based sparkline from a sequence of floats.
 
     Returns a string of Unicode block characters.

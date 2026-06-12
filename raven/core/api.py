@@ -89,9 +89,12 @@ def create_base_app(
     )
 
     # ── CORS ─────────────────────────────────────────────────────────
+    # The web dashboard is served from the same origin so no CORS is
+    # needed.  Keep the middleware for explicit opt-in later, but
+    # default to NO allowed origins to prevent cross-origin data leaks.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if not api_key else [],
+        allow_origins=[],
         allow_credentials=False,
         allow_methods=["GET"],
         allow_headers=["X-API-Key"],
@@ -136,14 +139,20 @@ def create_base_app(
     # ── WebSocket: live stream ───────────────────────────────────────
     @app.websocket("/ws/live")
     async def ws_live(websocket: WebSocket):
-        if api_key:
-            key = websocket.query_params.get("api_key", "")
-            if not hmac.compare_digest(key, api_key):
-                await websocket.close(code=4001, reason="Invalid API key")
-                return
-
         await websocket.accept()
         try:
+            # Authenticate via first message if an API key is configured.
+            # This avoids leaking the key in URL query params (logs, history).
+            if api_key:
+                try:
+                    auth_msg = await asyncio.wait_for(websocket.receive_text(), timeout=10)
+                except asyncio.TimeoutError:
+                    await websocket.close(code=4001, reason="Auth timeout")
+                    return
+                if not hmac.compare_digest(auth_msg, api_key):
+                    await websocket.close(code=4001, reason="Invalid API key")
+                    return
+
             while True:
                 snap = await collector.collect_async()
                 payload = json.dumps(asdict(snap), default=str)

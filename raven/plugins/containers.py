@@ -22,7 +22,7 @@ class ContainersPlugin(MonitorPlugin):
     name = "containers"
     category = "containers"
 
-    def __init__(self) -> None:
+    def __init__(self, config=None) -> None:
         super().__init__()
         # Cache Docker/LXC availability to avoid repeated expensive checks
         self._docker_ok: bool | None = None
