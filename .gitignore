@@ -3,40 +3,88 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-*.egg
-*.egg-info/
-dist/
+.Python
 build/
-*.whl
-*.manifest
-*.spec
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Virtual environments
 .venv/
 venv/
 env/
+.venv*/
+venv*/
+env*/
+ENV/
+env.bak/
+venv.bak/
 
-# IDE
+# Environment variables & secrets
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+*.env
+
+# IDEs and Editors
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
 
-# Testing / Coverage
+# OS-specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Testing & Coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .nox/
+.hypothesis/
 
-# Distribution
-*.tar.gz
-*.zip
-MANIFEST
+# Type checking & Linting
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.pytype/
 
-# Raven
+# Documentation
+site/
+
+# Project-specific / Raven
 raven_monitor.egg-info/
 
 # Linting
