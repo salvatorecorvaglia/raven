@@ -5,14 +5,8 @@ from __future__ import annotations
 import datetime
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import human_bytes
+from raven.core.utils import human_bytes, render_bar
 from raven.export.base import BaseExporter
-
-
-def _bar(percent: float, width: int = 20) -> str:
-    """Simple ASCII bar for a percentage."""
-    filled = int(width * percent / 100)
-    return f"[{'█' * filled}{'░' * (width - filled)}] {percent:.1f}%"
 
 
 class TextExporter(BaseExporter):
@@ -37,7 +31,7 @@ class TextExporter(BaseExporter):
         # ── CPU ──────────────────────────────────────────────────────
         if show_all or "cpu" in mods:
             c = snapshot.cpu
-            parts.append(f"  CPU  {_bar(c.percent_overall)}  {c.core_count_logical} cores")
+            parts.append(f"  CPU  {render_bar(c.percent_overall, bracketed=True).plain}  {c.core_count_logical} cores")
             if c.frequency_current_mhz:
                 parts[-1] += f"  @ {c.frequency_current_mhz:.0f} MHz"
             if c.load_avg_1 is not None:
@@ -48,11 +42,11 @@ class TextExporter(BaseExporter):
         if show_all or "memory" in mods:
             m = snapshot.memory
             parts.append(
-                f"  RAM  {_bar(m.percent)}  {human_bytes(m.used)} / {human_bytes(m.total)}"
+                f"  RAM  {render_bar(m.percent, bracketed=True).plain}  {human_bytes(m.used)} / {human_bytes(m.total)}"
             )
             if m.swap_total > 0:
                 parts.append(
-                    f"  Swap {_bar(m.swap_percent)}"
+                    f"  Swap {render_bar(m.swap_percent, bracketed=True).plain}"
                     f"  {human_bytes(m.swap_used)} / {human_bytes(m.swap_total)}"
                 )
             parts.append("")
@@ -61,7 +55,7 @@ class TextExporter(BaseExporter):
         if show_all or "disk" in mods:
             for dp in snapshot.disk.partitions[:8]:
                 parts.append(
-                    f"  {dp.mountpoint:<15} {_bar(dp.percent)}"
+                    f"  {dp.mountpoint:<15} {render_bar(dp.percent, bracketed=True).plain}"
                     f"  {human_bytes(dp.used)} / {human_bytes(dp.total)}"
                 )
             io = snapshot.disk.io

@@ -12,6 +12,11 @@ Usage::
 from __future__ import annotations
 
 import argparse
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from raven.config import RavenConfig
+
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -115,7 +120,7 @@ def main(argv: list[str] | None = None) -> None:
 # ── Sub-command handlers ─────────────────────────────────────────────────────
 
 
-def _cmd_print(args: argparse.Namespace, config) -> None:
+def _cmd_print(args: argparse.Namespace, config: RavenConfig) -> None:
     from raven.core.collector import Collector
 
     fmt = args.format or config.export.format
@@ -146,7 +151,7 @@ def _cmd_print(args: argparse.Namespace, config) -> None:
     print(exporter.format(snapshot, modules))
 
 
-def _cmd_web(args: argparse.Namespace, config) -> None:
+def _cmd_web(args: argparse.Namespace, config: RavenConfig) -> None:
     import uvicorn
 
     from raven.web.server import create_app
@@ -159,7 +164,7 @@ def _cmd_web(args: argparse.Namespace, config) -> None:
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
-def _cmd_serve(args: argparse.Namespace, config) -> None:
+def _cmd_serve(args: argparse.Namespace, config: RavenConfig) -> None:
     import uvicorn
 
     from raven.remote.server import create_remote_app
@@ -172,7 +177,7 @@ def _cmd_serve(args: argparse.Namespace, config) -> None:
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
-def _cmd_tui(args: argparse.Namespace, config) -> None:
+def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
     remote_addr = getattr(args, "remote", None)
     if remote_addr:
         from raven.remote.client import RemoteCollector

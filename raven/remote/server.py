@@ -13,7 +13,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from raven.config import RavenConfig, load_config
-from raven.core.api import _warn_open_bind, create_base_app
+from raven.core.api import create_base_app, warn_open_bind
 from raven.core.collector import Collector
 
 
@@ -23,7 +23,7 @@ def create_remote_app(config: RavenConfig | None = None) -> FastAPI:
     collector = Collector(cfg)
     api_key = cfg.remote.api_key
 
-    _warn_open_bind(cfg.remote.host, api_key, "Remote agent")
+    warn_open_bind(cfg.remote.host, api_key, "Remote agent")
 
     return create_base_app(
         config=cfg,

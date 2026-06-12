@@ -8,17 +8,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import color_for_percent, human_bytes, text_sparkline
-
-
-def _bar(pct: float, width: int = 20) -> Text:
-    filled = int(width * pct / 100)
-    color = color_for_percent(pct)
-    t = Text()
-    t.append("█" * filled, style=color)
-    t.append("░" * (width - filled), style="dim")
-    t.append(f" {pct:5.1f}%", style=f"bold {color}")
-    return t
+from raven.core.utils import color_for_percent, human_bytes, render_bar, text_sparkline
 
 
 class MemoryWidget(Static):
@@ -37,13 +27,13 @@ class MemoryWidget(Static):
 
         # RAM bar
         text.append("  RAM   ")
-        text.append_text(_bar(mem.percent))
+        text.append_text(render_bar(mem.percent, width=20))
         text.append(f"  {human_bytes(mem.used)} / {human_bytes(mem.total)}\n", style="dim")
 
         # Swap bar
         if mem.swap_total > 0:
             text.append("  Swap  ")
-            text.append_text(_bar(mem.swap_percent))
+            text.append_text(render_bar(mem.swap_percent, width=20))
             text.append(
                 f"  {human_bytes(mem.swap_used)} / {human_bytes(mem.swap_total)}\n",
                 style="dim",

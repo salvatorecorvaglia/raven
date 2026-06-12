@@ -33,9 +33,3 @@ class UsersPlugin(MonitorPlugin):
             )
         return users
 
-
-PLUGIN_INFO = {
-    "name": "users",
-    "category": "users",
-    "class": UsersPlugin,
-}

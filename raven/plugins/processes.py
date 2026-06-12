@@ -92,9 +92,3 @@ class ProcessesPlugin(MonitorPlugin):
                 continue
         return procs
 
-
-PLUGIN_INFO = {
-    "name": "processes",
-    "category": "processes",
-    "class": ProcessesPlugin,
-}

@@ -14,7 +14,7 @@ from rich.panel import Panel
 
 from raven.config import RavenConfig
 from raven.core.collector import Collector
-from raven.core.utils import human_bytes
+from raven.core.utils import color_for_percent, human_bytes
 
 # ── ASCII Art ────────────────────────────────────────────────────────────────
 
@@ -36,12 +36,9 @@ _RAVEN_ART = r"""
 
 def _color_percent(percent: float) -> str:
     """Return a colored percentage string."""
-    if percent < 50:
-        return f"[green]{percent:.1f}%[/green]"
-    elif percent < 80:
-        return f"[yellow]{percent:.1f}%[/yellow]"
-    else:
-        return f"[red]{percent:.1f}%[/red]"
+    color = color_for_percent(percent)
+    return f"[{color}]{percent:.1f}%[/{color}]"
+
 
 
 def run_fetch(config: RavenConfig | None = None) -> None:

@@ -1,8 +1,7 @@
 """Abstract base class for Raven monitoring plugins.
 
 Every plugin must subclass ``MonitorPlugin`` and implement ``collect()``
-and ``is_available()``.  The ``PLUGIN_INFO`` module-level dict is used by
-the plugin manager for discovery.
+and ``is_available()``.
 """
 
 from __future__ import annotations

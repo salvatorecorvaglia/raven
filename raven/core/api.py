@@ -38,7 +38,7 @@ VALID_MODULES = frozenset(
 )
 
 
-def _warn_open_bind(host: str, api_key: str, service_name: str) -> None:
+def warn_open_bind(host: str, api_key: str, service_name: str) -> None:
     """Log a security warning if binding to all interfaces with no auth."""
     if host == "0.0.0.0" and not api_key:
         log.warning(

@@ -135,9 +135,3 @@ class ContainersPlugin(MonitorPlugin):
             log.debug("LXC collection failed", exc_info=True)
         return containers
 
-
-PLUGIN_INFO = {
-    "name": "containers",
-    "category": "containers",
-    "class": ContainersPlugin,
-}

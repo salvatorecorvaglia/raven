@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from raven.config import RavenConfig, load_config
-from raven.core.api import _warn_open_bind, create_base_app
+from raven.core.api import create_base_app, warn_open_bind
 from raven.core.collector import Collector
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -28,7 +28,7 @@ def create_app(config: RavenConfig | None = None) -> FastAPI:
     collector = Collector(cfg)
     api_key = cfg.web.api_key
 
-    _warn_open_bind(cfg.web.host, api_key, "Web dashboard")
+    warn_open_bind(cfg.web.host, api_key, "Web dashboard")
 
     app = create_base_app(
         config=cfg,

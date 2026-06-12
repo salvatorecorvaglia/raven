@@ -85,9 +85,3 @@ class SensorsPlugin(MonitorPlugin):
         except (AttributeError, OSError):
             return None
 
-
-PLUGIN_INFO = {
-    "name": "sensors",
-    "category": "sensors",
-    "class": SensorsPlugin,
-}

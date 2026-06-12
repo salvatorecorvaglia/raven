@@ -49,10 +49,3 @@ class CpuPlugin(MonitorPlugin):
             ctx_switches=cpu_stats.ctx_switches,
             interrupts=cpu_stats.interrupts,
         )
-
-
-PLUGIN_INFO = {
-    "name": "cpu",
-    "category": "cpu",
-    "class": CpuPlugin,
-}

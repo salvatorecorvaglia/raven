@@ -75,37 +75,36 @@ class RemoteCollector:
     # ── Parsing ──────────────────────────────────────────────────────
 
     @staticmethod
+    def _build(cls: type, data: dict | None):
+        if not data:
+            return cls()
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+    @staticmethod
     def _parse(data: dict) -> SystemSnapshot:
         """Convert a JSON dict back into a ``SystemSnapshot``."""
-        cpu_data = data.get("cpu") or {}
-        mem_data = data.get("memory") or {}
+        cpu_data = data.get("cpu")
+        mem_data = data.get("memory")
         disk_data = data.get("disk") or {}
         net_data = data.get("network") or {}
-        si_data = data.get("system_info") or {}
+        si_data = data.get("system_info")
         sensor_data = data.get("sensors") or {}
         ct_data = data.get("containers") or {}
 
         # CPU
-        cpu = CpuMetrics(
-            **{k: v for k, v in cpu_data.items() if k in CpuMetrics.__dataclass_fields__}
-        )
+        cpu = RemoteCollector._build(CpuMetrics, cpu_data)
 
         # Memory
-        mem = MemoryMetrics(
-            **{k: v for k, v in mem_data.items() if k in MemoryMetrics.__dataclass_fields__}
-        )
+        mem = RemoteCollector._build(MemoryMetrics, mem_data)
 
         # Disk
-        parts = [DiskPartition(**p) for p in (disk_data.get("partitions") or [])]
-        io_raw = disk_data.get("io") or {}
-        disk_io = DiskIO(**{k: v for k, v in io_raw.items() if k in DiskIO.__dataclass_fields__})
+        parts = [RemoteCollector._build(DiskPartition, p) for p in (disk_data.get("partitions") or [])]
+        disk_io = RemoteCollector._build(DiskIO, disk_data.get("io"))
         disk = DiskMetrics(partitions=parts, io=disk_io)
 
         # Network
         ifaces = [
-            NetworkInterface(
-                **{k: v for k, v in i.items() if k in NetworkInterface.__dataclass_fields__}
-            )
+            RemoteCollector._build(NetworkInterface, i)
             for i in (net_data.get("interfaces") or [])
         ]
         network = NetworkMetrics(
@@ -115,40 +114,32 @@ class RemoteCollector:
 
         # Processes
         procs = [
-            ProcessInfo(**{k: v for k, v in p.items() if k in ProcessInfo.__dataclass_fields__})
+            RemoteCollector._build(ProcessInfo, p)
             for p in (data.get("processes") or [])
         ]
 
         # Users
         users = [
-            UserInfo(**{k: v for k, v in u.items() if k in UserInfo.__dataclass_fields__})
+            RemoteCollector._build(UserInfo, u)
             for u in (data.get("users") or [])
         ]
 
         # Sensors
         temps = [
-            TemperatureReading(
-                **{k: v for k, v in t.items() if k in TemperatureReading.__dataclass_fields__}
-            )
+            RemoteCollector._build(TemperatureReading, t)
             for t in (sensor_data.get("temperatures") or [])
         ]
         fans = [
-            FanReading(**{k: v for k, v in f.items() if k in FanReading.__dataclass_fields__})
+            RemoteCollector._build(FanReading, f)
             for f in (sensor_data.get("fans") or [])
         ]
         bat_raw = sensor_data.get("battery")
-        battery = (
-            BatteryInfo(
-                **{k: v for k, v in bat_raw.items() if k in BatteryInfo.__dataclass_fields__}
-            )
-            if bat_raw
-            else None
-        )
+        battery = RemoteCollector._build(BatteryInfo, bat_raw) if bat_raw else None
         sensors = SensorMetrics(temperatures=temps, fans=fans, battery=battery)
 
         # Containers
         containers_list = [
-            ContainerInfo(**{k: v for k, v in c.items() if k in ContainerInfo.__dataclass_fields__})
+            RemoteCollector._build(ContainerInfo, c)
             for c in (ct_data.get("containers") or [])
         ]
         containers = ContainerMetrics(
@@ -158,12 +149,10 @@ class RemoteCollector:
         )
 
         # System info
-        sys_info = SystemInfoMetrics(
-            **{k: v for k, v in si_data.items() if k in SystemInfoMetrics.__dataclass_fields__}
-        )
+        sys_info = RemoteCollector._build(SystemInfoMetrics, si_data)
 
         return SystemSnapshot(
-            timestamp=data.get("timestamp", 0),
+            timestamp=data.get("timestamp", 0.0),
             cpu=cpu,
             memory=mem,
             disk=disk,
@@ -174,3 +163,4 @@ class RemoteCollector:
             containers=containers,
             system_info=sys_info,
         )
+

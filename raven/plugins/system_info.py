@@ -49,9 +49,3 @@ class SystemInfoPlugin(MonitorPlugin):
             username=username,
         )
 
-
-PLUGIN_INFO = {
-    "name": "system_info",
-    "category": "system_info",
-    "class": SystemInfoPlugin,
-}

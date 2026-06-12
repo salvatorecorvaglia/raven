@@ -8,17 +8,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import color_for_percent, text_sparkline
-
-
-def _bar(pct: float, width: int = 15) -> Text:
-    filled = int(width * pct / 100)
-    color = color_for_percent(pct)
-    t = Text()
-    t.append("█" * filled, style=color)
-    t.append("░" * (width - filled), style="dim")
-    t.append(f" {pct:5.1f}%", style=f"bold {color}")
-    return t
+from raven.core.utils import color_for_percent, render_bar, text_sparkline
 
 
 class CpuWidget(Static):
@@ -37,7 +27,7 @@ class CpuWidget(Static):
 
         # Overall bar
         text.append("  Overall  ")
-        text.append_text(_bar(cpu.percent_overall))
+        text.append_text(render_bar(cpu.percent_overall, width=15))
         text.append("\n")
 
         # Per-core bars (compact: 2 or 4 per line depending on core count)
@@ -50,7 +40,7 @@ class CpuWidget(Static):
                 idx = i + j
                 if idx < len(cores):
                     line.append(f"C{idx:<2} ")
-                    line.append_text(_bar(cores[idx], width=bar_width))
+                    line.append_text(render_bar(cores[idx], width=bar_width))
                     line.append("  ")
             text.append_text(line)
             text.append("\n")

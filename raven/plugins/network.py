@@ -50,9 +50,3 @@ class NetworkPlugin(MonitorPlugin):
             connections_count=conn_count,
         )
 
-
-PLUGIN_INFO = {
-    "name": "network",
-    "category": "network",
-    "class": NetworkPlugin,
-}

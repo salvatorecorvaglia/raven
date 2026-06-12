@@ -56,9 +56,3 @@ class DiskPlugin(MonitorPlugin):
 
         return DiskMetrics(partitions=partitions, io=disk_io)
 
-
-PLUGIN_INFO = {
-    "name": "disk",
-    "category": "disk",
-    "class": DiskPlugin,
-}

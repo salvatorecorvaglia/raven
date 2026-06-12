@@ -58,3 +58,38 @@ def text_sparkline(history) -> str:
         idx = max(0, min(idx, len(spark_chars) - 1))
         spark += spark_chars[idx]
     return spark
+
+
+def render_bar(
+    pct: float,
+    width: int = 20,
+    style_color: str | None = None,
+    bracketed: bool = False,
+) -> rich.text.Text:
+    """Render a progress bar using Rich Text.
+
+    Parameters
+    ----------
+    pct:
+        The percentage (0-100).
+    width:
+        The character width of the filled/unfilled portion of the bar.
+    style_color:
+        Explicit colour name, or None to determine based on percentage thresholds.
+    bracketed:
+        If True, wraps the bar with dim brackets '[ ]'.
+    """
+    import rich.text
+    filled = int(width * pct / 100)
+    filled = max(0, min(filled, width))
+    color = style_color or color_for_percent(pct)
+    t = rich.text.Text()
+    if bracketed:
+        t.append("[", style="dim")
+    t.append("█" * filled, style=color)
+    t.append("░" * (width - filled), style="dim")
+    if bracketed:
+        t.append("]", style="dim")
+    t.append(f" {pct:5.1f}%", style=f"bold {color}")
+    return t
+

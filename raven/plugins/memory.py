@@ -29,9 +29,3 @@ class MemoryPlugin(MonitorPlugin):
             swap_percent=sw.percent,
         )
 
-
-PLUGIN_INFO = {
-    "name": "memory",
-    "category": "memory",
-    "class": MemoryPlugin,
-}

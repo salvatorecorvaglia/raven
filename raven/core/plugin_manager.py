@@ -42,16 +42,21 @@ _NAME_TO_CONFIG = {
 }
 
 
-def _load_plugin_module(module_name: str) -> dict[str, Any] | None:
-    """Import a plugin module and return its ``PLUGIN_INFO`` dict."""
+def _load_plugin_module(module_name: str) -> type[MonitorPlugin] | None:
+    """Import a plugin module and return its ``MonitorPlugin`` class."""
     fqn = f"raven.plugins.{module_name}"
     try:
         mod = importlib.import_module(fqn)
-        info = getattr(mod, "PLUGIN_INFO", None)
-        if info is None:
-            log.warning("Plugin module %s has no PLUGIN_INFO — skipping", fqn)
-            return None
-        return info
+        for name in dir(mod):
+            obj = getattr(mod, name)
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, MonitorPlugin)
+                and obj is not MonitorPlugin
+            ):
+                return obj
+        log.warning("Plugin module %s has no MonitorPlugin subclass — skipping", fqn)
+        return None
     except Exception:
         log.exception("Failed to load plugin module %s", fqn)
         return None
@@ -69,11 +74,7 @@ def get_enabled_plugins(config: RavenConfig) -> list[MonitorPlugin]:
                 log.debug("Plugin %s disabled by config", mod_name)
                 continue
 
-        info = _load_plugin_module(mod_name)
-        if info is None:
-            continue
-
-        cls = info.get("class")
+        cls = _load_plugin_module(mod_name)
         if cls is None:
             continue
 
