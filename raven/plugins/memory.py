@@ -28,4 +28,3 @@ class MemoryPlugin(MonitorPlugin):
             swap_free=sw.free,
             swap_percent=sw.percent,
         )
-

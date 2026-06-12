@@ -49,4 +49,3 @@ class NetworkPlugin(MonitorPlugin):
             interfaces=interfaces,
             connections_count=conn_count,
         )
-

@@ -46,4 +46,3 @@ class NetworkWidget(Static):
 
         text.append(f"  Connections: {net.connections_count}\n", style="dim")
         self.update(text)
-

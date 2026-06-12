@@ -43,9 +43,7 @@ class TextExporter(BaseExporter):
         if show_all or "memory" in mods:
             m = snapshot.memory
             mem_bar = render_bar(m.percent, bracketed=True).plain
-            parts.append(
-                f"  RAM  {mem_bar}  {human_bytes(m.used)} / {human_bytes(m.total)}"
-            )
+            parts.append(f"  RAM  {mem_bar}  {human_bytes(m.used)} / {human_bytes(m.total)}")
             if m.swap_total > 0:
                 parts.append(
                     f"  Swap {render_bar(m.swap_percent, bracketed=True).plain}"

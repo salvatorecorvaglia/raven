@@ -140,9 +140,7 @@ def _find_config_file(explicit_path: str | None = None) -> Path | None:
     if explicit_path:
         p = Path(explicit_path)
         if not p.is_file():
-            raise FileNotFoundError(
-                f"Config file not found: {explicit_path!r}"
-            )
+            raise FileNotFoundError(f"Config file not found: {explicit_path!r}")
         return p
 
     candidates = [
@@ -202,25 +200,17 @@ def validate_config(config: RavenConfig) -> None:
             f"general.refresh_interval must be >= 1, got {config.general.refresh_interval}"
         )
     if config.general.theme not in ("dark", "light"):
-        raise ValueError(
-            f"general.theme must be 'dark' or 'light', got {config.general.theme!r}"
-        )
+        raise ValueError(f"general.theme must be 'dark' or 'light', got {config.general.theme!r}")
     if not (1 <= config.web.port <= 65535):
-        raise ValueError(
-            f"web.port must be between 1 and 65535, got {config.web.port}"
-        )
+        raise ValueError(f"web.port must be between 1 and 65535, got {config.web.port}")
     if not (1 <= config.remote.port <= 65535):
-        raise ValueError(
-            f"remote.port must be between 1 and 65535, got {config.remote.port}"
-        )
+        raise ValueError(f"remote.port must be between 1 and 65535, got {config.remote.port}")
     if config.export.format not in ("text", "csv", "json"):
         raise ValueError(
             f"export.format must be 'text', 'csv', or 'json', got {config.export.format!r}"
         )
     if config.processes.max_display < 1:
-        raise ValueError(
-            f"processes.max_display must be >= 1, got {config.processes.max_display}"
-        )
+        raise ValueError(f"processes.max_display must be >= 1, got {config.processes.max_display}")
     if config.processes.sort_by not in ("cpu", "memory", "pid", "name"):
         raise ValueError(
             "processes.sort_by must be one of 'cpu', 'memory', 'pid', 'name', "
@@ -250,4 +240,3 @@ def load_config(explicit_path: str | None = None) -> RavenConfig:
     cfg = _dict_to_config(merged)
     validate_config(cfg)
     return cfg
-

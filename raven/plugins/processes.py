@@ -73,8 +73,12 @@ class ProcessesPlugin(MonitorPlugin):
                 with proc.oneshot():
                     full_info = proc.as_dict(
                         attrs=[
-                            "name", "username", "status", "cmdline",
-                            "num_threads", "memory_info"
+                            "name",
+                            "username",
+                            "status",
+                            "cmdline",
+                            "num_threads",
+                            "memory_info",
                         ]
                     )
                 cmdline = full_info.get("cmdline") or []
@@ -95,4 +99,3 @@ class ProcessesPlugin(MonitorPlugin):
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
         return procs
-

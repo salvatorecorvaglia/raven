@@ -110,7 +110,6 @@ class Collector:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.collect)
 
-
     # ── private ──────────────────────────────────────────────────────────
 
     @staticmethod

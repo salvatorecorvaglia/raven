@@ -55,4 +55,3 @@ class DiskPlugin(MonitorPlugin):
             disk_io = DiskIO()
 
         return DiskMetrics(partitions=partitions, io=disk_io)
-

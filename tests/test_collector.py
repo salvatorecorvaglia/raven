@@ -63,4 +63,3 @@ def test_collector_failure_tolerance(mock_config):
     snapshot = collector.collect()
     assert snapshot is not None
     assert snapshot.cpu == CpuMetrics()
-

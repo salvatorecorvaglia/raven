@@ -8,9 +8,7 @@ from raven.web.server import create_app
 @pytest.fixture
 def api_client(mock_config):
     # Set up config with a mock API key
-    cfg = RavenConfig(
-        web=WebConfig(api_key="secret-key", host="127.0.0.1", port=8080)
-    )
+    cfg = RavenConfig(web=WebConfig(api_key="secret-key", host="127.0.0.1", port=8080))
     app = create_app(cfg)
     return TestClient(app)
 

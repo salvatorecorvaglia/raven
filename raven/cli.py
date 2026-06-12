@@ -67,7 +67,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Connect to a remote Raven agent",
     )
 
-
     sub = parser.add_subparsers(dest="command")
 
     # ── fetch ────────────────────────────────────────────────────────
@@ -124,7 +123,6 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     config = load_config(args.config)
-
 
     command = args.command
 
@@ -228,6 +226,7 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
     if not remote_addr:
         if config.web.enabled:
             from raven.web.server import create_app
+
             web_app = create_app(config)
             t = threading.Thread(
                 target=uvicorn.run,
@@ -243,6 +242,7 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
 
         if config.remote.enabled:
             from raven.remote.server import create_remote_app
+
             remote_app = create_remote_app(config)
             t = threading.Thread(
                 target=uvicorn.run,
@@ -260,7 +260,6 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
 
     app = RavenApp(collector=collector, config=config)
     app.run()
-
 
 
 if __name__ == "__main__":

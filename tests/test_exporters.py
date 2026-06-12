@@ -42,4 +42,3 @@ def test_exporter_filtering(dummy_snapshot):
     text_out = text_exp.format(dummy_snapshot, modules=["cpu"])
     assert "CPU" in text_out
     assert "RAM" not in text_out
-

@@ -40,7 +40,6 @@ def _color_percent(percent: float) -> str:
     return f"[{color}]{percent:.1f}%[/{color}]"
 
 
-
 def run_fetch(config: RavenConfig | None = None) -> None:
     """Print a quick system summary to the console."""
     console = Console()

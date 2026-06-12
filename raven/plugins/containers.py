@@ -134,4 +134,3 @@ class ContainersPlugin(MonitorPlugin):
         except Exception:
             log.debug("LXC collection failed", exc_info=True)
         return containers
-

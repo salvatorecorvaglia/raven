@@ -93,4 +93,3 @@ def render_bar(
         t.append("]", style="dim")
     t.append(f" {pct:5.1f}%", style=f"bold {color}")
     return t
-

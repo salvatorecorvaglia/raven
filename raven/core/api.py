@@ -163,7 +163,6 @@ def create_base_app(
                 return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
             return await call_next(request)
 
-
     # ── REST: full snapshot ──────────────────────────────────────────
     @app.get("/api/v1/snapshot")
     async def snapshot():

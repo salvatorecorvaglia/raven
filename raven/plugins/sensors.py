@@ -84,4 +84,3 @@ class SensorsPlugin(MonitorPlugin):
             )
         except (AttributeError, OSError):
             return None
-

@@ -81,4 +81,3 @@ def test_config_validation():
     # Invalid sort_by
     with pytest.raises(ValueError, match="processes.sort_by must be one of"):
         validate_config(RavenConfig(processes=ProcessesConfig(sort_by="invalid")))
-

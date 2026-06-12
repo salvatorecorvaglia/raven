@@ -48,4 +48,3 @@ class SystemInfoPlugin(MonitorPlugin):
             python_version=platform.python_version(),
             username=username,
         )
-

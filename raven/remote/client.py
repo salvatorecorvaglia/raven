@@ -99,16 +99,14 @@ class RemoteCollector:
 
         # Disk
         parts = [
-            RemoteCollector._build(DiskPartition, p)
-            for p in (disk_data.get("partitions") or [])
+            RemoteCollector._build(DiskPartition, p) for p in (disk_data.get("partitions") or [])
         ]
         disk_io = RemoteCollector._build(DiskIO, disk_data.get("io"))
         disk = DiskMetrics(partitions=parts, io=disk_io)
 
         # Network
         ifaces = [
-            RemoteCollector._build(NetworkInterface, i)
-            for i in (net_data.get("interfaces") or [])
+            RemoteCollector._build(NetworkInterface, i) for i in (net_data.get("interfaces") or [])
         ]
         network = NetworkMetrics(
             interfaces=ifaces,
@@ -116,34 +114,24 @@ class RemoteCollector:
         )
 
         # Processes
-        procs = [
-            RemoteCollector._build(ProcessInfo, p)
-            for p in (data.get("processes") or [])
-        ]
+        procs = [RemoteCollector._build(ProcessInfo, p) for p in (data.get("processes") or [])]
 
         # Users
-        users = [
-            RemoteCollector._build(UserInfo, u)
-            for u in (data.get("users") or [])
-        ]
+        users = [RemoteCollector._build(UserInfo, u) for u in (data.get("users") or [])]
 
         # Sensors
         temps = [
             RemoteCollector._build(TemperatureReading, t)
             for t in (sensor_data.get("temperatures") or [])
         ]
-        fans = [
-            RemoteCollector._build(FanReading, f)
-            for f in (sensor_data.get("fans") or [])
-        ]
+        fans = [RemoteCollector._build(FanReading, f) for f in (sensor_data.get("fans") or [])]
         bat_raw = sensor_data.get("battery")
         battery = RemoteCollector._build(BatteryInfo, bat_raw) if bat_raw else None
         sensors = SensorMetrics(temperatures=temps, fans=fans, battery=battery)
 
         # Containers
         containers_list = [
-            RemoteCollector._build(ContainerInfo, c)
-            for c in (ct_data.get("containers") or [])
+            RemoteCollector._build(ContainerInfo, c) for c in (ct_data.get("containers") or [])
         ]
         containers = ContainerMetrics(
             containers=containers_list,
@@ -166,4 +154,3 @@ class RemoteCollector:
             containers=containers,
             system_info=sys_info,
         )
-
