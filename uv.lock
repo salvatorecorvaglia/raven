@@ -627,7 +627,7 @@ wheels = [
 ]
 
 [[package]]
-name = "raven-monitor"
+name = "raven"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -663,7 +663,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
-    { name = "raven-monitor", extras = ["docker", "dev"], marker = "extra == 'all'" },
+    { name = "raven", extras = ["docker", "dev"], marker = "extra == 'all'" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "textual", specifier = ">=0.80.0" },
