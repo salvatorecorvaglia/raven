@@ -21,7 +21,7 @@ def _flatten(data: dict, prefix: str = "") -> dict[str, str]:
             if len(value) == 0:
                 items[full_key] = ""
             elif isinstance(value[0], dict):
-                for i, item in enumerate(value[:50]):  # cap to 50 items
+                for i, item in enumerate(value[:5]):  # cap to 5 items
                     items.update(_flatten(item, f"{full_key}[{i}]"))
             else:
                 items[full_key] = "; ".join(str(v) for v in value)

@@ -8,10 +8,12 @@ with API key middleware, snapshot endpoints, and WebSocket streaming.
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 import hmac
 import json
 import logging
 import sys
+import time
 from dataclasses import asdict
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -82,10 +84,49 @@ def create_base_app(
     """
     from raven import __version__
 
+    active_websockets: set[WebSocket] = set()
+
+    async def broadcast_snapshots():
+        log.info("Starting background WebSocket broadcast loop")
+        try:
+            while True:
+                if active_websockets:
+                    snap = await collector.collect_async()
+                    payload = json.dumps(asdict(snap), default=str)
+                    disconnected = []
+                    for ws in active_websockets:
+                        try:
+                            await ws.send_text(payload)
+                        except Exception:
+                            disconnected.append(ws)
+                    for ws in disconnected:
+                        active_websockets.discard(ws)
+                await asyncio.sleep(config.general.refresh_interval)
+        except asyncio.CancelledError:
+            log.info("Background WebSocket broadcast loop cancelled")
+        except Exception:
+            log.exception("Error in background broadcast loop")
+
+    broadcast_task = None
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        nonlocal broadcast_task
+        broadcast_task = asyncio.create_task(broadcast_snapshots())
+        yield
+        if broadcast_task:
+            broadcast_task.cancel()
+            try:
+                await broadcast_task
+            except asyncio.CancelledError:
+                pass
+        collector.close()
+
     app = FastAPI(
         title=title,
         version=__version__,
         description=description,
+        lifespan=lifespan,
     )
 
     # ── CORS ─────────────────────────────────────────────────────────
@@ -101,19 +142,27 @@ def create_base_app(
     )
 
     # ── API key middleware (timing-safe) ─────────────────────────────
-    _skip = skip_auth_paths or frozenset()
+    _skip = (skip_auth_paths or frozenset()) | frozenset({"/health"})
 
     if api_key:
+        from fastapi.responses import JSONResponse
 
         @app.middleware("http")
         async def _check_api_key(request: Request, call_next):
             path = request.url.path
-            if any(path.startswith(prefix) for prefix in _skip):
+            is_skipped = path in _skip or any(
+                path.startswith(prefix + "/") for prefix in _skip if prefix != "/"
+            )
+            if is_skipped:
                 return await call_next(request)
-            key = request.headers.get("X-API-Key", "")
+
+            key = request.headers.get("X-API-Key")
+            if not key:
+                return JSONResponse(status_code=401, content={"detail": "Missing API key"})
             if not hmac.compare_digest(key, api_key):
-                raise HTTPException(status_code=401, detail="Invalid API key")
+                return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
             return await call_next(request)
+
 
     # ── REST: full snapshot ──────────────────────────────────────────
     @app.get("/api/v1/snapshot")
@@ -129,12 +178,17 @@ def create_base_app(
                 status_code=404,
                 detail=f"Unknown module '{module}'. Valid: {sorted(VALID_MODULES)}",
             )
-        snap = await collector.collect_async()
-        data = asdict(snap)
-        result = data.get(module)
+        result = await collector.collect_module_async(module)
         if result is None:
             raise HTTPException(status_code=404, detail=f"No data for module '{module}'")
-        return {"module": module, "timestamp": data["timestamp"], "data": result}
+        if isinstance(result, list):
+            serialized = [asdict(x) if hasattr(x, "__dataclass_fields__") else x for x in result]
+        elif hasattr(result, "__dataclass_fields__"):
+            serialized = asdict(result)
+        else:
+            serialized = result
+        timestamp = collector._last_collected_at or time.time()
+        return {"module": module, "timestamp": timestamp, "data": serialized}
 
     # ── WebSocket: live stream ───────────────────────────────────────
     @app.websocket("/ws/live")
@@ -153,11 +207,12 @@ def create_base_app(
                     await websocket.close(code=4001, reason="Invalid API key")
                     return
 
+            active_websockets.add(websocket)
+            initial_snap = await collector.collect_async()
+            await websocket.send_text(json.dumps(asdict(initial_snap), default=str))
+
             while True:
-                snap = await collector.collect_async()
-                payload = json.dumps(asdict(snap), default=str)
-                await websocket.send_text(payload)
-                await asyncio.sleep(config.general.refresh_interval)
+                await websocket.receive_text()
         except WebSocketDisconnect:
             pass
         except Exception:
@@ -165,6 +220,8 @@ def create_base_app(
                 await websocket.close()
             except Exception:
                 pass
+        finally:
+            active_websockets.discard(websocket)
 
     # ── Health check ─────────────────────────────────────────────────
     @app.get("/health")

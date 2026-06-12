@@ -195,6 +195,38 @@ def _dict_to_config(data: dict[str, Any]) -> RavenConfig:
     )
 
 
+def validate_config(config: RavenConfig) -> None:
+    """Validate config values, raising ValueError for invalid settings."""
+    if config.general.refresh_interval < 1:
+        raise ValueError(
+            f"general.refresh_interval must be >= 1, got {config.general.refresh_interval}"
+        )
+    if config.general.theme not in ("dark", "light"):
+        raise ValueError(
+            f"general.theme must be 'dark' or 'light', got {config.general.theme!r}"
+        )
+    if not (1 <= config.web.port <= 65535):
+        raise ValueError(
+            f"web.port must be between 1 and 65535, got {config.web.port}"
+        )
+    if not (1 <= config.remote.port <= 65535):
+        raise ValueError(
+            f"remote.port must be between 1 and 65535, got {config.remote.port}"
+        )
+    if config.export.format not in ("text", "csv", "json"):
+        raise ValueError(
+            f"export.format must be 'text', 'csv', or 'json', got {config.export.format!r}"
+        )
+    if config.processes.max_display < 1:
+        raise ValueError(
+            f"processes.max_display must be >= 1, got {config.processes.max_display}"
+        )
+    if config.processes.sort_by not in ("cpu", "memory", "pid", "name"):
+        raise ValueError(
+            f"processes.sort_by must be one of 'cpu', 'memory', 'pid', 'name', got {config.processes.sort_by!r}"
+        )
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 
@@ -214,4 +246,7 @@ def load_config(explicit_path: str | None = None) -> RavenConfig:
         user_data = {}
 
     merged = _deep_merge(_DEFAULTS, user_data)
-    return _dict_to_config(merged)
+    cfg = _dict_to_config(merged)
+    validate_config(cfg)
+    return cfg
+

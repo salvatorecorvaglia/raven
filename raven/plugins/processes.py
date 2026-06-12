@@ -70,9 +70,10 @@ class ProcessesPlugin(MonitorPlugin):
         for proc, info in top_procs:
             try:
                 # Fetch detailed heavy attributes only for top processes
-                full_info = proc.as_dict(
-                    attrs=["name", "username", "status", "cmdline", "num_threads", "memory_info"]
-                )
+                with proc.oneshot():
+                    full_info = proc.as_dict(
+                        attrs=["name", "username", "status", "cmdline", "num_threads", "memory_info"]
+                    )
                 cmdline = full_info.get("cmdline") or []
                 mem_info = full_info.get("memory_info")
                 procs.append(

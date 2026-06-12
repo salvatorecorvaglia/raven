@@ -19,6 +19,26 @@ if TYPE_CHECKING:
 
 
 
+import urllib.parse
+
+
+def remote_address_type(value: str) -> str:
+    """Argparse type validator for remote host:port addresses."""
+    url_str = value
+    if not url_str.startswith(("http://", "https://")):
+        url_str = f"http://{url_str}"
+    try:
+        parsed = urllib.parse.urlparse(url_str)
+        if not parsed.hostname:
+            raise ValueError("Hostname is required")
+        if parsed.port is not None:
+            if not (1 <= parsed.port <= 65535):
+                raise ValueError("Port must be between 1 and 65535")
+    except Exception as e:
+        raise argparse.ArgumentTypeError(f"Invalid remote address format '{value}': {e}")
+    return value
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="raven",
@@ -31,11 +51,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to raven.toml config file",
     )
     parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose debug logging",
+    )
+    parser.add_argument(
         "--remote",
         "-r",
+        type=remote_address_type,
         metavar="HOST:PORT",
         help="Connect to a remote Raven agent",
     )
+
 
     sub = parser.add_subparsers(dest="command")
 
@@ -83,11 +111,20 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     """Main entry point."""
+    import logging
     from raven.config import load_config
 
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    log_level = logging.DEBUG if args.verbose else logging.WARNING
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
     config = load_config(args.config)
+
 
     command = args.command
 
@@ -188,10 +225,45 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
 
         collector = Collector(config)
 
+    if not remote_addr:
+        import threading
+        import uvicorn
+
+        if config.web.enabled:
+            from raven.web.server import create_app
+            web_app = create_app(config)
+            t = threading.Thread(
+                target=uvicorn.run,
+                args=(web_app,),
+                kwargs={
+                    "host": config.web.host,
+                    "port": config.web.port,
+                    "log_level": "warning",
+                },
+                daemon=True,
+            )
+            t.start()
+
+        if config.remote.enabled:
+            from raven.remote.server import create_remote_app
+            remote_app = create_remote_app(config)
+            t = threading.Thread(
+                target=uvicorn.run,
+                args=(remote_app,),
+                kwargs={
+                    "host": config.remote.host,
+                    "port": config.remote.port,
+                    "log_level": "warning",
+                },
+                daemon=True,
+            )
+            t.start()
+
     from raven.tui.app import RavenApp
 
     app = RavenApp(collector=collector, config=config)
     app.run()
+
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -40,6 +41,9 @@ class Collector:
             max_workers=min(len(self.plugins), 8) or 1,
             thread_name_prefix="raven-collector",
         )
+        self._last_snapshot: SystemSnapshot | None = None
+        self._last_collected_at: float = 0.0
+        self._cache_lock = threading.Lock()
         atexit.register(self._shutdown)
         log.info(
             "Collector initialised with %d plugins: %s",
@@ -60,22 +64,52 @@ class Collector:
         self._shutdown()
 
     def collect(self) -> SystemSnapshot:
-        """Run all plugins in parallel and return a snapshot."""
-        results: dict[str, Any] = {}
-        futures = {self._executor.submit(plugin.collect): plugin for plugin in self.plugins}
-        for future in as_completed(futures):
-            plugin = futures[future]
-            try:
-                results[plugin.name] = future.result(timeout=10)
-            except Exception:
-                log.exception("Plugin %s failed during collection", plugin.name)
+        """Run all plugins in parallel and return a snapshot, using TTL cache if fresh."""
+        now = time.time()
+        ttl = max(0.5, self.config.general.refresh_interval / 2.0)
 
-        return self._assemble(results)
+        with self._cache_lock:
+            if self._last_snapshot and (now - self._last_collected_at < ttl):
+                return self._last_snapshot
+
+            results: dict[str, Any] = {}
+            futures = {self._executor.submit(plugin.collect): plugin for plugin in self.plugins}
+            for future in as_completed(futures):
+                plugin = futures[future]
+                try:
+                    results[plugin.name] = future.result(timeout=10)
+                except Exception:
+                    log.exception("Plugin %s failed during collection", plugin.name)
+
+            self._last_snapshot = self._assemble(results)
+            self._last_collected_at = now
+            return self._last_snapshot
+
+    def collect_module(self, name: str) -> Any:
+        """Collect metrics for a single module, checking TTL cache or querying the plugin directly."""
+        now = time.time()
+        ttl = max(0.5, self.config.general.refresh_interval / 2.0)
+
+        with self._cache_lock:
+            if self._last_snapshot and (now - self._last_collected_at < ttl):
+                return getattr(self._last_snapshot, name, None)
+
+        plugin = next((p for p in self.plugins if p.name == name), None)
+        if not plugin:
+            return None
+
+        return plugin.collect()
+
+    async def collect_module_async(self, name: str) -> Any:
+        """Async wrapper around collect_module."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.collect_module, name)
 
     async def collect_async(self) -> SystemSnapshot:
         """Run collection in a thread executor (non-blocking for async apps)."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.collect)
+
 
     # ── private ──────────────────────────────────────────────────────────
 

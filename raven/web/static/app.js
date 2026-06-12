@@ -68,8 +68,10 @@
         return parts.join(" ");
     }
 
+    const EMPTY_LABELS = Array.from({ length: MAX_HISTORY }, () => "");
+
     function timeLabels() {
-        return Array.from({ length: MAX_HISTORY }, (_, i) => "");
+        return EMPTY_LABELS;
     }
 
     // ── Chart Setup ─────────────────────────────────────────────────────
@@ -261,8 +263,7 @@
         cpuHistory.push(overall);
         if (cpuHistory.length > MAX_HISTORY) cpuHistory.shift();
         if (cpuChart) {
-            cpuChart.data.datasets[0].data = [...cpuHistory];
-            cpuChart.data.labels = timeLabels();
+            cpuChart.data.datasets[0].data = cpuHistory;
             cpuChart.options.scales.y.max = 100;
             cpuChart.update("none");
         }
@@ -293,8 +294,7 @@
         memHistory.push(mem.percent || 0);
         if (memHistory.length > MAX_HISTORY) memHistory.shift();
         if (memChart) {
-            memChart.data.datasets[0].data = [...memHistory];
-            memChart.data.labels = timeLabels();
+            memChart.data.datasets[0].data = memHistory;
             memChart.options.scales.y.max = 100;
             memChart.update("none");
         }
@@ -328,9 +328,8 @@
 
         // Update chart
         if (netChart && netSentHistory.length > 0) {
-            netChart.data.datasets[0].data = [...netSentHistory];
-            netChart.data.datasets[1].data = [...netRecvHistory];
-            netChart.data.labels = timeLabels();
+            netChart.data.datasets[0].data = netSentHistory;
+            netChart.data.datasets[1].data = netRecvHistory;
             netChart.update("none");
         }
 
