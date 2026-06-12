@@ -19,6 +19,10 @@ class CpuWidget(Static):
         self._history: deque[float] = deque(maxlen=60)
 
     def update_data(self, snap: SystemSnapshot) -> None:
+        if not hasattr(self.app, "_cpu_history"):
+            self.app._cpu_history = deque(maxlen=60)
+        self._history = self.app._cpu_history
+
         cpu = snap.cpu
         self._history.append(cpu.percent_overall)
 

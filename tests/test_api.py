@@ -60,3 +60,9 @@ def test_api_module_endpoint(api_client):
     response = api_client.get("/api/v1/invalid_module", headers={"X-API-Key": "secret-key"})
     assert response.status_code == 404
     assert "Unknown module" in response.json()["detail"]
+
+
+def test_api_static_files(api_client):
+    response = api_client.get("/static/style.css")
+    assert response.status_code == 200
+    assert "body" in response.text

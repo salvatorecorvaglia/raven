@@ -20,6 +20,8 @@
     let netRecvHistory = [];
     let prevNetSent = 0;
     let prevNetRecv = 0;
+    let prevIfaceData = {};
+    let lastSnapshot = null;
     let sortKey = "cpu_percent";
     let sortAsc = false;
 
@@ -353,9 +355,28 @@
             const addrEl = row.querySelector(".iface-addr");
 
             const addr = iface.addrs && iface.addrs.length > 0 ? iface.addrs[0] : "—";
+            const name = iface.name;
 
-            nameEl.textContent = iface.name;
-            rateEl.textContent = `▲ ${humanBytes(iface.bytes_sent)}  ▼ ${humanBytes(iface.bytes_recv)}`;
+            // Compute rates
+            let rateSent = 0;
+            let rateRecv = 0;
+            const now = Date.now();
+            if (prevIfaceData[name]) {
+                const prev = prevIfaceData[name];
+                const dt = (now - prev.time) / 1000.0;
+                if (dt > 0.1) {
+                    rateSent = Math.max(0, (iface.bytes_sent - prev.sent) / dt);
+                    rateRecv = Math.max(0, (iface.bytes_recv - prev.recv) / dt);
+                }
+            }
+            prevIfaceData[name] = {
+                sent: iface.bytes_sent,
+                recv: iface.bytes_recv,
+                time: now
+            };
+
+            nameEl.textContent = name;
+            rateEl.textContent = `▲ ${humanBytesRate(rateSent)}  ▼ ${humanBytesRate(rateRecv)}`;
             addrEl.textContent = addr;
         });
     }
@@ -575,6 +596,23 @@
             return sortAsc ? va - vb : vb - va;
         });
 
+        // Update header sort indicators
+        document.querySelectorAll("#process-table th[data-sort]").forEach((th) => {
+            const key = th.getAttribute("data-sort");
+            let baseText = th.getAttribute("data-base");
+            if (!baseText) {
+                baseText = th.textContent.replace(/ [▲▼]/g, "");
+                th.setAttribute("data-base", baseText);
+            }
+            if (key === sortKey) {
+                th.textContent = baseText + (sortAsc ? " ▲" : " ▼");
+                th.setAttribute("aria-sort", sortAsc ? "ascending" : "descending");
+            } else {
+                th.textContent = baseText;
+                th.removeAttribute("aria-sort");
+            }
+        });
+
         const tbody = document.getElementById("process-tbody");
         const displayLimit = 40;
         const showProcs = sorted.slice(0, displayLimit);
@@ -621,15 +659,33 @@
     }
 
     // ── Process table sorting ───────────────────────────────────────────
-    document.getElementById("process-table").addEventListener("click", (e) => {
-        const th = e.target.closest("th[data-sort]");
-        if (!th) return;
+    const processTable = document.getElementById("process-table");
+
+    function handleSort(th) {
         const key = th.getAttribute("data-sort");
         if (sortKey === key) {
             sortAsc = !sortAsc;
         } else {
             sortKey = key;
             sortAsc = false;
+        }
+        if (lastSnapshot) {
+            updateProcesses(lastSnapshot);
+        }
+    }
+
+    processTable.addEventListener("click", (e) => {
+        const th = e.target.closest("th[data-sort]");
+        if (th) handleSort(th);
+    });
+
+    processTable.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            const th = e.target.closest("th[data-sort]");
+            if (th) {
+                e.preventDefault();
+                handleSort(th);
+            }
         }
     });
 
@@ -663,6 +719,7 @@
         ws.onmessage = (event) => {
             try {
                 const snap = JSON.parse(event.data);
+                lastSnapshot = snap;
                 updateHeader(snap);
                 updateCpu(snap);
                 updateMemory(snap);
@@ -698,9 +755,45 @@
         document.getElementById("clock").textContent = new Date().toLocaleTimeString();
     }, 1000);
 
+    // ── Theme Management ────────────────────────────────────────────────
+    function updateChartTheme() {
+        const isLight = document.body.classList.contains("light-theme");
+        const gridColor = isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.04)";
+        const tickColor = isLight ? "#64748b" : "#5a6785";
+
+        [cpuChart, memChart, netChart].forEach((chart) => {
+            if (!chart) return;
+            chart.options.scales.y.grid.color = gridColor;
+            chart.options.scales.y.ticks.color = tickColor;
+            chart.options.plugins.tooltip.backgroundColor = isLight ? "rgba(255, 255, 255, 0.95)" : "rgba(20, 27, 45, 0.95)";
+            chart.options.plugins.tooltip.bodyColor = isLight ? "#1e293b" : "#e6f1ff";
+            chart.options.plugins.tooltip.borderColor = isLight ? "rgba(0, 0, 0, 0.1)" : "rgba(0, 210, 255, 0.3)";
+            chart.update();
+        });
+    }
+
+    const themeBtn = document.getElementById("theme-toggle");
+    if (themeBtn) {
+        themeBtn.addEventListener("click", () => {
+            document.body.classList.toggle("light-theme");
+            const isLight = document.body.classList.contains("light-theme");
+            localStorage.setItem("theme", isLight ? "light" : "dark");
+            updateChartTheme();
+        });
+
+        // Restore saved theme on load (applied to body class in HTML, but update charts)
+        const savedTheme = localStorage.getItem("theme");
+        if (savedTheme === "light") {
+            document.body.classList.add("light-theme");
+        }
+    }
+
     // ── Init ────────────────────────────────────────────────────────────
     cpuChart = createChart("cpu-chart", "CPU %", "#00d2ff", "rgba(0, 210, 255, 0.1)");
     memChart = createChart("mem-chart", "Memory %", "#c084fc", "rgba(192, 132, 252, 0.1)");
     netChart = createNetChart("net-chart");
+    if (document.body.classList.contains("light-theme")) {
+        updateChartTheme();
+    }
     connect();
 })();

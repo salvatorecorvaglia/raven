@@ -45,3 +45,22 @@ def test_collector_collect_module(mock_config):
     assert cpu_metrics is not None
     assert hasattr(cpu_metrics, "percent_overall")
 
+
+def test_collector_failure_tolerance(mock_config):
+    from raven.core.models import CpuMetrics
+
+    class FailingPlugin:
+        name = "cpu"
+        category = "cpu"
+        enabled = True
+
+        def collect(self):
+            raise RuntimeError("Dummy collect failure")
+
+    collector = Collector(mock_config)
+    collector.plugins = [FailingPlugin()]
+
+    snapshot = collector.collect()
+    assert snapshot is not None
+    assert snapshot.cpu == CpuMetrics()
+

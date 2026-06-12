@@ -19,7 +19,27 @@ class ProcessTable(DataTable):
     def update_data(
         self, snap: SystemSnapshot, max_display: int = 25, sort_by: str = "cpu"
     ) -> None:
+        from rich.text import Text
         from textual.coordinate import Coordinate
+
+        # Update headers with sort indicators
+        base_headers = ["PID", "Name", "User", "CPU%", "MEM%", "RSS", "Threads", "Status"]
+        sort_indices = {
+            "pid": (0, False),
+            "name": (1, False),
+            "cpu": (3, True),
+            "memory": (4, True),
+        }
+        cols = list(self.columns.values())
+        for idx, base in enumerate(base_headers):
+            if idx < len(cols):
+                cols[idx].label = Text(base)
+        if sort_by in sort_indices:
+            col_idx, rev = sort_indices[sort_by]
+            if col_idx < len(cols):
+                arrow = "▼" if rev else "▲"
+                cols[col_idx].label = Text(f"{base_headers[col_idx]} {arrow}")
+        self.refresh()
 
         # Determine sort
         sort_map = {

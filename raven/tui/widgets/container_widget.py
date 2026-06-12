@@ -13,6 +13,22 @@ class ContainerWidget(Static):
 
     def update_data(self, snap: SystemSnapshot) -> None:
         containers = snap.containers
+        
+        # Auto-hide if neither runtime is available
+        if not containers.docker_available and not containers.lxc_available:
+            self.display = False
+            try:
+                self.app.query_one("#dashboard").add_class("no-containers")
+            except Exception:
+                pass
+            return
+        else:
+            self.display = True
+            try:
+                self.app.query_one("#dashboard").remove_class("no-containers")
+            except Exception:
+                pass
+
         text = Text()
         text.append("  Containers\n", style="bold cyan")
 

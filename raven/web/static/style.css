@@ -24,6 +24,24 @@
     --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+body.light-theme {
+    --bg-primary: #f0f4f8;
+    --bg-card: rgba(255, 255, 255, 0.9);
+    --bg-card-hover: rgba(255, 255, 255, 0.95);
+    --border-color: rgba(180, 195, 210, 0.5);
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-dim: #64748b;
+    --accent-cyan: #0284c7;
+    --accent-green: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-purple: #8b5cf6;
+    background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(2, 132, 199, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+}
+
 /* ── Reset & Base ───────────────────────────────────────────────────────── */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -419,7 +437,7 @@ body {
 /* ── Process Table ──────────────────────────────────────────────────────── */
 .table-wrapper {
     max-height: 320px;
-    overflow-y: auto;
+    overflow: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) transparent;
 }
@@ -474,6 +492,11 @@ body {
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     color: var(--text-secondary);
     transition: var(--transition);
+}
+
+#process-table th,
+#process-table td {
+    white-space: nowrap;
 }
 
 #process-table tbody tr:hover td {
@@ -586,7 +609,6 @@ canvas {
 /* ── Connection toast and dimming ── */
 body.disconnected #dashboard {
     opacity: 0.65;
-    pointer-events: none;
     transition: opacity 0.3s ease;
 }
 body.disconnected::after {
@@ -631,5 +653,31 @@ body.loading .container-list {
 /* ── Users Card layout fix ── */
 #users-card {
     grid-column: span 2;
+}
+
+/* ── Theme Toggle Button ────────────────────────────────────────────────── */
+.theme-toggle-btn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--accent-cyan);
+    transform: scale(1.1) rotate(15deg);
+}
+
+body.light-theme .theme-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
 }
 

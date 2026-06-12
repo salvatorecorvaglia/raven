@@ -19,6 +19,10 @@ class MemoryWidget(Static):
         self._history: deque[float] = deque(maxlen=60)
 
     def update_data(self, snap: SystemSnapshot) -> None:
+        if not hasattr(self.app, "_memory_history"):
+            self.app._memory_history = deque(maxlen=60)
+        self._history = self.app._memory_history
+
         mem = snap.memory
         self._history.append(mem.percent)
 

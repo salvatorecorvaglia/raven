@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦‍⬛</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="loading disconnected">
@@ -20,6 +21,7 @@
             <span class="badge" id="status-badge">Connecting…</span>
         </div>
         <div class="header-right">
+            <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">🌓</button>
             <span id="hostname" class="header-info"></span>
             <span id="os-info" class="header-info"></span>
             <span id="uptime" class="header-info"></span>
@@ -141,11 +143,11 @@
                     <table id="process-table">
                         <thead>
                             <tr>
-                                <th data-sort="pid">PID</th>
-                                <th data-sort="name">Name</th>
-                                <th data-sort="username">User</th>
-                                <th data-sort="cpu_percent">CPU%</th>
-                                <th data-sort="memory_percent">MEM%</th>
+                                <th data-sort="pid" tabindex="0" role="button" aria-label="Sort by PID">PID</th>
+                                <th data-sort="name" tabindex="0" role="button" aria-label="Sort by Name">Name</th>
+                                <th data-sort="username" tabindex="0" role="button" aria-label="Sort by User">User</th>
+                                <th data-sort="cpu_percent" tabindex="0" role="button" aria-label="Sort by CPU Percent">CPU%</th>
+                                <th data-sort="memory_percent" tabindex="0" role="button" aria-label="Sort by Memory Percent">MEM%</th>
                                 <th>Status</th>
                             </tr>
                         </thead>

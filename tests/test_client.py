@@ -60,3 +60,88 @@ def test_client_parse_robustness():
     assert parsed.users == []
     assert parsed.sensors.temperatures == []
     assert parsed.containers.containers == []
+
+
+def test_remote_collector_integration(mock_config):
+    import socket
+    import time
+    import threading
+    import uvicorn
+    from raven.remote.server import create_remote_app
+
+    # Get a free port
+    s = socket.socket()
+    s.bind(("", 0))
+    port = s.getsockname()[1]
+    s.close()
+
+    app = create_remote_app(mock_config)
+
+    class ThreadSafeServer(uvicorn.Server):
+        def install_signal_handlers(self):
+            pass
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+    server = ThreadSafeServer(config)
+
+    def run_server():
+        server.run()
+
+    thread = threading.Thread(target=run_server, daemon=True)
+    thread.start()
+
+    time.sleep(0.5)
+
+    try:
+        client = RemoteCollector(address=f"127.0.0.1:{port}")
+        snapshot = client.collect()
+        assert snapshot is not None
+        assert snapshot.cpu is not None
+        assert snapshot.timestamp > 0
+    finally:
+        server.should_exit = True
+        thread.join(timeout=2)
+
+
+import pytest
+
+@pytest.mark.asyncio
+async def test_remote_collector_integration_async(mock_config):
+    import socket
+    import time
+    import threading
+    import uvicorn
+    from raven.remote.server import create_remote_app
+
+    # Get a free port
+    s = socket.socket()
+    s.bind(("", 0))
+    port = s.getsockname()[1]
+    s.close()
+
+    app = create_remote_app(mock_config)
+
+    class ThreadSafeServer(uvicorn.Server):
+        def install_signal_handlers(self):
+            pass
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+    server = ThreadSafeServer(config)
+
+    def run_server():
+        server.run()
+
+    thread = threading.Thread(target=run_server, daemon=True)
+    thread.start()
+
+    time.sleep(0.5)
+
+    try:
+        client = RemoteCollector(address=f"127.0.0.1:{port}")
+        snapshot = await client.collect_async()
+        assert snapshot is not None
+        assert snapshot.cpu is not None
+        assert snapshot.timestamp > 0
+    finally:
+        server.should_exit = True
+        thread.join(timeout=2)

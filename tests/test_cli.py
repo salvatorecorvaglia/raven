@@ -22,3 +22,28 @@ def test_remote_address_validation_invalid():
 
     with pytest.raises(argparse.ArgumentTypeError, match="Invalid remote address format"):
         remote_address_type("localhost:0")
+
+
+def test_cli_subcommands_routing():
+    from unittest.mock import patch
+    from raven.cli import main
+
+    with patch("raven.cli._cmd_tui") as mock_tui:
+        main([])
+        mock_tui.assert_called_once()
+
+    with patch("raven.fetch.run_fetch") as mock_fetch:
+        main(["fetch"])
+        mock_fetch.assert_called_once()
+
+    with patch("raven.cli._cmd_print") as mock_print:
+        main(["print", "cpu", "-f", "json"])
+        mock_print.assert_called_once()
+
+    with patch("raven.cli._cmd_web") as mock_web:
+        main(["web", "--host", "127.0.0.1", "-p", "8080"])
+        mock_web.assert_called_once()
+
+    with patch("raven.cli._cmd_serve") as mock_serve:
+        main(["serve", "--host", "0.0.0.0", "-p", "9090"])
+        mock_serve.assert_called_once()
