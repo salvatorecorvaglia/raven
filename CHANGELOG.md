@@ -5,9 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2026-06-07
+## [0.1.0] - 2026-06-05
 
 ### Added
+- First implementation of Raven.
 - Created a comprehensive test suite (21 unit/integration tests) under `tests/` covering configuration merging, models, parallel collectors, client parsers, exporters, and plugins.
 - Configured pytest/asyncio in `pyproject.toml` and established mock infrastructure.
 - Introduced a premium loading shimmer state and connection-lost toast UI to the web dashboard.
@@ -29,10 +30,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restricted LXC subprocess output sizes to 10MB to prevent memory exhaustion attacks.
 - Prevented potential client crashes on unexpected sensors payload fields by filtering incoming dictionary keys.
 - Cached Docker and LXC software availability checks to reduce CPU overhead.
-
-## [0.1.0] - 2026-06-05
-
-### Added
-
-- First implementation of Raven.
 
