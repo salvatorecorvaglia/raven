@@ -1,112 +1,118 @@
 # Contributing to Raven 🐦‍⬛
 
-First off, thank you for taking the time to contribute! It's people like you who make the open-source community such an amazing place to learn, inspire, and create.
+First off, thank you for considering contributing to Raven! It's people like you who make Raven a great cross-platform system monitor.
 
-The following guidelines will help you get started with contributing to **Raven**, a system monitor for Linux, BSD, macOS, and Windows.
-
-## Table of Contents
-
-- [Code of Conduct](#code-of-conduct)
-- [How Can I Contribute?](#how-can-i-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Enhancements](#suggesting-enhancements)
-  - [Pull Requests](#pull-requests)
-- [Local Development Setup](#local-development-setup)
-- [Style & Quality Guidelines](#style--quality-guidelines)
-- [Contact & Support](#contact--support)
+Please take a moment to review this document to make the contribution process smooth and efficient for everyone involved.
 
 ## Code of Conduct
 
-By participating in this project, you agree to maintain a respectful, welcoming, and inclusive environment. Please be kind, constructive, and collaborative.
+By participating in this project, you agree to abide by our standards of respect, inclusivity, and collaboration. Please be kind and respectful in all interactions.
 
 ## How Can I Contribute?
 
-### Reporting Bugs
+### 🐛 Reporting Bugs
+Before submitting a bug report:
+1. Search the [existing Issues](https://github.com/salvatorecorvaglia/raven/issues) to ensure the bug hasn't already been reported.
+2. If it's a new issue, use the **Bug Report** template when creating it.
+3. Provide a clear, detailed description of the problem, steps to reproduce, and details about your operating system and environment.
 
-If you find a bug or unexpected behavior:
-1. **Search existing issues** to check if it has already been reported.
-2. If not, **open a new issue** and include:
-   - A clear and descriptive title.
-   - Steps to reproduce the issue.
-   - Expected vs. actual behavior.
-   - Your environment details (OS, Python version, Raven version).
-   - Any relevant logs, screenshots, or stack traces.
+### ✨ Suggesting Enhancements
+We love new ideas! If you have a feature suggestion:
+1. Search the [existing Issues](https://github.com/salvatorecorvaglia/raven/issues) to see if it has been discussed.
+2. File a **Feature Request** issue detailing the problem your feature solves and how it should work.
 
-> [!WARNING]
-> If you discover a security vulnerability, please do **not** open a public issue. Refer to our [Security Policy](./SECURITY.md) for how to report it securely.
-
-### Suggesting Enhancements
-
-We are always looking for new features, plugins, and performance optimizations:
-1. Check if the enhancement has already been proposed in the issues.
-2. Open a new issue outlining:
-   - What the feature is and why it would be useful.
-   - Any design suggestions or implementation thoughts.
-   - Mockups or terminal layout ideas, if applicable.
-
-### Pull Requests
-
-To submit your changes:
-1. **Fork** the repository and create a branch from `main`.
-2. Keep your changes focused. If you want to do multiple unrelated things, submit separate pull requests.
-3. Write clean, readable code and follow the [Style & Quality Guidelines](#style--quality-guidelines).
-4. Update documentation (`README.md`, comments) if you introduce new features or change CLI commands/configuration options.
-5. Submit the pull request (PR) and describe your changes clearly in the PR description.
-
-## Local Development Setup
-
-Follow these steps to set up Raven for development on your machine:
-
-1. **Clone your fork:**
-   ```bash
-   git clone https://github.com/your-username/raven.git
-   cd raven
-   ```
-
-2. **Set up a virtual environment (recommended):**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-3. **Install dependencies in editable mode:**
-   Install development tools and optional dependencies:
-   ```bash
-   pip install -e ".[all]"
-   ```
-
-4. **Verify the installation:**
-   Run the CLI directly to ensure it works:
-   ```bash
-   raven fetch
-   ```
-
-## Running Tests
-
-We use [pytest](https://docs.pytest.org/) for running the test suite. After making any changes, please verify that all tests pass before submitting a pull request:
-
-```bash
-pytest
-```
-
-## Style & Quality Guidelines
-
-We use [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. 
-
-Before committing your changes, please run:
-
-```bash
-# Check for lint issues
-ruff check
-
-# Format your code
-ruff format
-```
-
-## 📜 Code of Conduct
-
-Please maintain a respectful and professional tone in all communications.
+### 🛠 Pull Requests
+1. Fork the repository and create your branch from `main`.
+2. Keep your PRs focused on a single change/feature.
+3. Ensure the test suite passes and new tests are added for your changes.
+4. Follow the project's code style and formatting standards.
+5. Reference any related issues in the PR description (e.g., `Fixes #123`).
 
 ---
 
-Happy coding! 🌑
+## Local Development Setup
+
+Raven uses `uv` for lightning-fast Python virtual environment and package management.
+
+### 1. Prerequisites
+- Python 3.11 or newer.
+- `uv` installed. If you don't have it, install it via:
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  # Or via Homebrew (macOS)
+  brew install uv
+  ```
+
+### 2. Environment Setup
+Clone the repository and sync the development environment (including all extras and dev dependencies):
+```bash
+git clone https://github.com/salvatorecorvaglia/raven.git
+cd raven
+
+# Sync virtual environment and dependencies
+uv sync --all-extras --dev
+```
+
+This creates a local `.venv` directory configured with all dependencies (including `docker` and `dev` tools like `pytest` and `ruff`).
+
+### 3. Running Raven in Development
+To run your development copy of Raven, prefix commands with `uv run`:
+```bash
+# Launch the TUI dashboard
+uv run raven
+
+# Launch the quick fetch summary
+uv run raven fetch
+
+# Launch the web dashboard
+uv run raven web
+```
+
+---
+
+## Code Quality & Guidelines
+
+To maintain code quality, we enforce linting, formatting, and type safety rules.
+
+### 🎨 Formatting and Linting
+We use [Ruff](https://github.com/astral-sh/ruff) to lint and format our codebase. Before committing, run:
+```bash
+# Check for lint issues and automatically fix simple ones
+uv run ruff check --fix
+
+# Format code automatically
+uv run ruff format
+```
+The CI pipeline will fail if Ruff checks or formatting fail.
+
+### 🔒 Type Safety
+This project uses PEP 484 type hints. If you add new parameters, functions, or classes, ensure they are properly typed.
+
+---
+
+## Testing
+
+We use [pytest](https://docs.pytest.org/) for automated testing.
+
+- Place unit and integration tests in the [tests/](file:///Users/salvatorecorvaglia/github/raven/tests) directory.
+- Run the full test suite before submitting a PR:
+  ```bash
+  uv run pytest
+  ```
+- Make sure to add tests for any new features or bug fixes you implement.
+
+---
+
+## Project Structure
+
+Here is a quick overview of where different modules reside in the [raven/](file:///Users/salvatorecorvaglia/github/raven/raven) package:
+- `core/`: Core system monitoring modules and standard metric collectors.
+- `plugins/`: Extensible plugin system. To add a new metric collector, place it here (see `README.md` for a plugin example).
+- `tui/`: Textual-based terminal user interface components and styles (`.tcss`).
+- `web/`: FastAPI web dashboard backend and static assets (HTML/CSS/JS).
+- `export/`: CLI and programmatic data exporters (JSON, CSV, plaintext).
+- `cli.py`: Command-line interface definition and parsing.
+
+---
+
+Happy coding! 🐦‍⬛
