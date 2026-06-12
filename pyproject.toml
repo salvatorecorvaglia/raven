@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "raven-tui"
+name = "raven-monitor"
 version = "0.1.0"
 description = "Cross-platform system monitor with TUI, web dashboard, and remote monitoring"
 readme = "README.md"
@@ -41,7 +41,7 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.4.0",
 ]
-all = ["raven-tui[docker,dev]"]
+all = ["raven-monitor[docker,dev]"]
 
 [project.scripts]
 raven = "raven.cli:main"
