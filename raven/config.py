@@ -223,7 +223,8 @@ def validate_config(config: RavenConfig) -> None:
         )
     if config.processes.sort_by not in ("cpu", "memory", "pid", "name"):
         raise ValueError(
-            f"processes.sort_by must be one of 'cpu', 'memory', 'pid', 'name', got {config.processes.sort_by!r}"
+            "processes.sort_by must be one of 'cpu', 'memory', 'pid', 'name', "
+            f"got {config.processes.sort_by!r}"
         )
 
 

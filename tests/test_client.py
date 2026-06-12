@@ -1,7 +1,14 @@
 import dataclasses
+import socket
+import threading
+import time
+
+import pytest
+import uvicorn
 
 from raven.core.models import SystemSnapshot
 from raven.remote.client import RemoteCollector
+from raven.remote.server import create_remote_app
 
 
 def test_client_parse_roundtrip(dummy_snapshot):
@@ -63,12 +70,6 @@ def test_client_parse_robustness():
 
 
 def test_remote_collector_integration(mock_config):
-    import socket
-    import time
-    import threading
-    import uvicorn
-    from raven.remote.server import create_remote_app
-
     # Get a free port
     s = socket.socket()
     s.bind(("", 0))
@@ -103,16 +104,8 @@ def test_remote_collector_integration(mock_config):
         thread.join(timeout=2)
 
 
-import pytest
-
 @pytest.mark.asyncio
 async def test_remote_collector_integration_async(mock_config):
-    import socket
-    import time
-    import threading
-    import uvicorn
-    from raven.remote.server import create_remote_app
-
     # Get a free port
     s = socket.socket()
     s.bind(("", 0))

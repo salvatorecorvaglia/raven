@@ -86,7 +86,7 @@ class Collector:
             return self._last_snapshot
 
     def collect_module(self, name: str) -> Any:
-        """Collect metrics for a single module, checking TTL cache or querying the plugin directly."""
+        """Collect metrics for a single module, checking TTL cache or querying the plugin."""
         now = time.time()
         ttl = max(0.5, self.config.general.refresh_interval / 2.0)
 

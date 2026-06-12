@@ -1,4 +1,3 @@
-import pytest
 from rich.text import Text
 
 from raven.core.utils import (
@@ -26,7 +25,8 @@ def test_human_bytes_compact():
     assert human_bytes_compact(1024 * 1024 * 2.5) == "2MB"
     # Let's verify our human_bytes_compact implementation format
     # It says: return f"{n:.0f}{unit}" if n >= 1 else f"{n:.1f}{unit}"
-    # So for 1024 * 1024 * 2.5: n = 2.5, returns "3MB" (since 2.5 rounds to 3 or 2 depending on round mode)
+    # So for 1024 * 1024 * 2.5: n = 2.5, returns "3MB" or "2MB" depending
+    # on the rounding mode.
     # Let's check 1024: n = 1, returns "1KB"
     # Let's check 512: n = 512, returns "512B"
 

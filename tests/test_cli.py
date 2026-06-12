@@ -1,7 +1,9 @@
 import argparse
+from unittest.mock import patch
+
 import pytest
 
-from raven.cli import remote_address_type
+from raven.cli import main, remote_address_type
 
 
 def test_remote_address_validation_valid():
@@ -25,9 +27,6 @@ def test_remote_address_validation_invalid():
 
 
 def test_cli_subcommands_routing():
-    from unittest.mock import patch
-    from raven.cli import main
-
     with patch("raven.cli._cmd_tui") as mock_tui:
         main([])
         mock_tui.assert_called_once()

@@ -5,6 +5,8 @@ Centralised here to avoid duplication across plugins, widgets, and exporters.
 
 from __future__ import annotations
 
+import rich.text
+
 
 def human_bytes(n: int | float) -> str:
     """Convert bytes to a human-readable string (e.g. ``1.5 GB``)."""
@@ -79,7 +81,6 @@ def render_bar(
     bracketed:
         If True, wraps the bar with dim brackets '[ ]'.
     """
-    import rich.text
     filled = int(width * pct / 100)
     filled = max(0, min(filled, width))
     color = style_color or color_for_percent(pct)

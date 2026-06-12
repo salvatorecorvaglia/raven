@@ -2,7 +2,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from raven.config import RavenConfig, WebConfig
-from raven.core.collector import Collector
 from raven.web.server import create_app
 
 

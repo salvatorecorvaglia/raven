@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 import hmac
 import json
 import logging
 import sys
 import time
-from dataclasses import asdict
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -200,7 +200,7 @@ def create_base_app(
             if api_key:
                 try:
                     auth_msg = await asyncio.wait_for(websocket.receive_text(), timeout=10)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     await websocket.close(code=4001, reason="Auth timeout")
                     return
                 if not hmac.compare_digest(auth_msg, api_key):

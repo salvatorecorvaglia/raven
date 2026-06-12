@@ -1,7 +1,19 @@
 import os
 import tempfile
 
-from raven.config import RavenConfig, _dict_to_config, load_config
+import pytest
+
+from raven.config import (
+    ExportConfig,
+    GeneralConfig,
+    ProcessesConfig,
+    RavenConfig,
+    RemoteConfig,
+    WebConfig,
+    _dict_to_config,
+    load_config,
+    validate_config,
+)
 
 
 def test_default_config():
@@ -38,16 +50,6 @@ def test_load_explicit_config():
 
 
 def test_config_validation():
-    import pytest
-    from raven.config import (
-        ExportConfig,
-        GeneralConfig,
-        ProcessesConfig,
-        RemoteConfig,
-        WebConfig,
-        validate_config,
-    )
-
     # Valid config
     valid_cfg = RavenConfig()
     validate_config(valid_cfg)  # should not raise

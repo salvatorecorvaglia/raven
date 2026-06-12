@@ -13,7 +13,7 @@ class ContainerWidget(Static):
 
     def update_data(self, snap: SystemSnapshot) -> None:
         containers = snap.containers
-        
+
         # Auto-hide if neither runtime is available
         if not containers.docker_available and not containers.lxc_available:
             self.display = False

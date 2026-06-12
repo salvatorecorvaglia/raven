@@ -12,14 +12,17 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import logging
+import threading
+import urllib.parse
 from typing import TYPE_CHECKING
+
+import uvicorn
+
+from raven.config import load_config
 
 if TYPE_CHECKING:
     from raven.config import RavenConfig
-
-
-
-import urllib.parse
 
 
 def remote_address_type(value: str) -> str:
@@ -35,7 +38,7 @@ def remote_address_type(value: str) -> str:
             if not (1 <= parsed.port <= 65535):
                 raise ValueError("Port must be between 1 and 65535")
     except Exception as e:
-        raise argparse.ArgumentTypeError(f"Invalid remote address format '{value}': {e}")
+        raise argparse.ArgumentTypeError(f"Invalid remote address format '{value}': {e}") from e
     return value
 
 
@@ -111,9 +114,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     """Main entry point."""
-    import logging
-    from raven.config import load_config
-
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -226,9 +226,6 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
         collector = Collector(config)
 
     if not remote_addr:
-        import threading
-        import uvicorn
-
         if config.web.enabled:
             from raven.web.server import create_app
             web_app = create_app(config)

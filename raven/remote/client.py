@@ -98,7 +98,10 @@ class RemoteCollector:
         mem = RemoteCollector._build(MemoryMetrics, mem_data)
 
         # Disk
-        parts = [RemoteCollector._build(DiskPartition, p) for p in (disk_data.get("partitions") or [])]
+        parts = [
+            RemoteCollector._build(DiskPartition, p)
+            for p in (disk_data.get("partitions") or [])
+        ]
         disk_io = RemoteCollector._build(DiskIO, disk_data.get("io"))
         disk = DiskMetrics(partitions=parts, io=disk_io)
 

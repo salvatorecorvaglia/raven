@@ -31,7 +31,8 @@ class TextExporter(BaseExporter):
         # ── CPU ──────────────────────────────────────────────────────
         if show_all or "cpu" in mods:
             c = snapshot.cpu
-            parts.append(f"  CPU  {render_bar(c.percent_overall, bracketed=True).plain}  {c.core_count_logical} cores")
+            cpu_bar = render_bar(c.percent_overall, bracketed=True).plain
+            parts.append(f"  CPU  {cpu_bar}  {c.core_count_logical} cores")
             if c.frequency_current_mhz:
                 parts[-1] += f"  @ {c.frequency_current_mhz:.0f} MHz"
             if c.load_avg_1 is not None:
@@ -41,8 +42,9 @@ class TextExporter(BaseExporter):
         # ── Memory ───────────────────────────────────────────────────
         if show_all or "memory" in mods:
             m = snapshot.memory
+            mem_bar = render_bar(m.percent, bracketed=True).plain
             parts.append(
-                f"  RAM  {render_bar(m.percent, bracketed=True).plain}  {human_bytes(m.used)} / {human_bytes(m.total)}"
+                f"  RAM  {mem_bar}  {human_bytes(m.used)} / {human_bytes(m.total)}"
             )
             if m.swap_total > 0:
                 parts.append(
