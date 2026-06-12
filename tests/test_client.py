@@ -72,7 +72,7 @@ def test_client_parse_robustness():
 def test_remote_collector_integration(mock_config):
     # Get a free port
     s = socket.socket()
-    s.bind(("", 0))
+    s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
     s.close()
 
@@ -108,7 +108,7 @@ def test_remote_collector_integration(mock_config):
 async def test_remote_collector_integration_async(mock_config):
     # Get a free port
     s = socket.socket()
-    s.bind(("", 0))
+    s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
     s.close()
 
