@@ -4,72 +4,116 @@
 
 ---
 
-## Features
+## 🌟 Key Features
 
-| Feature | Description |
-|---|---|
-| **TUI Dashboard** | Full-screen terminal UI with live-updating CPU, memory, disk, network, process, sensor, and container panels |
-| **Web Dashboard** | Browser-based real-time dashboard with Chart.js sparklines, WebSocket streaming, glassmorphism design |
-| **Quick Fetch** | Neofetch-style system summary with ASCII art |
-| **REST API** | Full JSON API at `/api/v1/snapshot` and per-module endpoints |
-| **Remote Monitoring** | Client–server mode — run `raven serve` on a remote host, connect with `raven --remote host:port` |
-| **Multi-Format Export** | Print stats as plain text, CSV, or JSON |
-| **Plugin Architecture** | Extensible monitoring via plugins — add new metric sources easily |
-| **TOML Configuration** | Customise refresh rate, enabled modules, web/remote ports, process sorting |
+* **⚡ Gorgeous Dashboards**:
+  * **TUI Dashboard**: Built with [Textual](https://textual.textualize.io/), offering smooth animations, color themes, real-time widgets, and flicker-free updates.
+  * **Web Dashboard**: An elegant web UI powered by FastAPI and Vanilla HTML/CSS/JS. Features premium loading shimmers, connection status toasts, and dynamic charts.
+* **🐦‍⬛ Neofetch-style Fetch**: A quick terminal command to fetch system hardware specs, platform info, and resources.
+* **🔒 Remote Monitoring**: Run a secure agent on a remote server with timing-attack resistant API key authentication, and visualize its metrics locally.
+* **🔌 Extensible Plugins**: Easily write your own metrics collectors by inheriting from [MonitorPlugin](file:///Users/salvatorecorvaglia/github/raven/raven/plugins/base.py#L13).
+* **📈 High Performance**: Metrics are queried in parallel via thread pools, with smart caching and lightweight process queries to minimize CPU overhead.
+* **📥 Multi-format Exporting**: Print metrics directly to your terminal or save them as CSV, JSON, or plaintext.
 
 ---
 
-## Quick Start
+## 🛠 Project Structure
+
+Raven is structured cleanly to separate collection logic, plugins, and frontends:
+
+* [raven/cli.py](file:///Users/salvatorecorvaglia/github/raven/raven/cli.py): CLI routing and argument definitions.
+* [raven/config.py](file:///Users/salvatorecorvaglia/github/raven/raven/config.py): TOML configuration schemas and verification logic.
+* [raven/core/](file:///Users/salvatorecorvaglia/github/raven/raven/core): Central coordinator containing the collector agent, type definitions, and standard protocol interfaces.
+* [raven/plugins/](file:///Users/salvatorecorvaglia/github/raven/raven/plugins): Discovered monitoring plugins (CPU, Memory, Disk, Containers, Network, Sensors, Processes, etc.).
+* [raven/tui/](file:///Users/salvatorecorvaglia/github/raven/raven/tui): Textual terminal widgets and layout CSS stylesheets (`.tcss`).
+* [raven/web/](file:///Users/salvatorecorvaglia/github/raven/raven/web): FastAPI backend and static web dashboard assets.
+* [raven/remote/](file:///Users/salvatorecorvaglia/github/raven/raven/remote): Server agent and client tools for remote metric sync.
+* [raven/export/](file:///Users/salvatorecorvaglia/github/raven/raven/export): Formatted data exporters.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+* **Python 3.11+**
+* `uv` (recommended) or `pip`
+
+### 2. Installation & Setup
+To install dependencies and prepare the environment:
 
 ```bash
-# Install
-pip3 install -e .
+# Clone the repository
+git clone https://github.com/salvatorecorvaglia/raven.git
+cd raven
 
-# Launch TUI dashboard
-raven
-
-# Quick system summary
-raven fetch
-
-# Print CPU and memory as JSON
-raven print cpu memory --format json
-
-# Start web dashboard
-raven web
-
-# Start remote monitoring agent
-raven serve --port 9090
-
-# Connect TUI to remote host
-raven --remote 10.0.0.5:9090
+# Sync virtual environment and download dependencies
+uv sync --all-extras --dev
 ```
 
 ---
 
-## Commands
+## 💻 Usage & CLI Guide
 
+Raven offers a simple command-line structure routed through [raven/cli.py](file:///Users/salvatorecorvaglia/github/raven/raven/cli.py):
+
+### 1. Start the TUI (Default)
+Run Raven with no arguments to launch the Textual TUI dashboard:
+```bash
+uv run raven
 ```
-raven                          Launch TUI dashboard (default)
-raven fetch                    Quick neofetch-style summary
-raven web [--host H] [--port P]  Start web dashboard
-raven serve [--host H] [--port P]  Start remote agent
-raven print [MODULES] [--format text|csv|json]  Print stats
-raven --remote HOST:PORT       Connect to remote agent
-raven --config PATH            Use custom config file
+
+### 2. Start the Web Dashboard
+Expose a web-based dashboard utilizing FastAPI:
+```bash
+uv run raven web
+# Options:
+#   --host Hostname to bind to (e.g. 127.0.0.1)
+#   --port Port to run server on (e.g. 8080)
+```
+
+### 3. Start a Remote Monitoring Agent
+To monitor a remote server, run the daemon agent on the remote host:
+```bash
+uv run raven serve --host 127.0.0.1 --port 9090
+```
+
+### 4. Connect to a Remote Agent
+You can direct your TUI, Web server, or exporters to read metrics from a running remote agent:
+```bash
+uv run raven --remote http://192.168.1.50:9090
+```
+
+### 5. Fetch a Quick System Summary
+Get a quick `neofetch`-style output of your server specifications:
+```bash
+uv run raven fetch
+```
+
+### 6. Export Metrics to Stdout
+Print system details to the terminal in JSON, CSV, or formatted text:
+```bash
+# Print all modules once as text
+uv run raven print
+
+# Print specific modules formatted as JSON
+uv run raven print cpu memory --format json
 ```
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
-Raven looks for `raven.toml` in this order:
-1. `--config` CLI flag
-2. `./raven.toml` (current directory)
-3. `~/.config/raven/raven.toml`
+Raven searches for settings in the following order:
+1. `--config` / `-c` CLI option.
+2. `./raven.toml` in the current working directory.
+3. `~/.config/raven/raven.toml`.
+4. Fall back to internal defaults.
+
+Refer to [raven.example.toml](file:///Users/salvatorecorvaglia/github/raven/raven.example.toml) for customising ports, intervals, enabled modules, and security parameters:
 
 ```toml
 [general]
-refresh_interval = 2     # seconds
+refresh_interval = 2        # seconds between updates
 theme = "dark"
 
 [modules]
@@ -83,105 +127,64 @@ sensors = true
 containers = true
 
 [web]
-host = "127.0.0.1"       # local bind (warning triggered if set to 0.0.0.0 without api_key)
+enabled = false
+host = "127.0.0.1"
 port = 8080
-api_key = ""             # empty = no auth
+api_key = ""                # Empty = no authentication
 
 [remote]
-host = "127.0.0.1"       # local bind (warning triggered if set to 0.0.0.0 without api_key)
+enabled = false
+host = "127.0.0.1"
 port = 9090
 api_key = ""
-
-
-[export]
-format = "text"          # text | csv | json
-
-[processes]
-max_display = 25
-sort_by = "cpu"          # cpu | memory | pid | name
 ```
 
 ---
 
-## REST API
+## 🔌 Creating Custom Plugins
 
-When the web dashboard or remote agent is running:
+All metrics collection modules are structured as plugins. To add your own custom collector:
 
-```bash
-# Full snapshot
-curl http://localhost:8080/api/v1/snapshot
-
-# Individual modules
-curl http://localhost:8080/api/v1/cpu
-curl http://localhost:8080/api/v1/memory
-curl http://localhost:8080/api/v1/disk
-curl http://localhost:8080/api/v1/network
-curl http://localhost:8080/api/v1/processes
-curl http://localhost:8080/api/v1/sensors
-curl http://localhost:8080/api/v1/containers
-curl http://localhost:8080/api/v1/system_info
-
-# With API key
-curl -H "X-API-Key: my-secret" http://localhost:8080/api/v1/snapshot
-```
-
----
-
-## TUI Keybindings
-
-| Key | Action |
-|---|---|
-| `q` | Quit |
-| `r` | Force refresh |
-| `p` | Cycle process sort (CPU → Memory → PID → Name) |
-
----
-
-## Writing a Plugin
-
-Create a new file in `raven/plugins/`:
+1. Create a Python file under the [raven/plugins/](file:///Users/salvatorecorvaglia/github/raven/raven/plugins) directory.
+2. Subclass [MonitorPlugin](file:///Users/salvatorecorvaglia/github/raven/raven/plugins/base.py#L13) and implement the abstract methods:
 
 ```python
 from raven.plugins.base import MonitorPlugin
-from dataclasses import dataclass
 
-@dataclass(frozen=True)
-class MyMetrics:
-    value: float = 0.0
-
-class MyPlugin(MonitorPlugin):
-    name = "my_plugin"
-    category = "custom"
+class CustomMetricsPlugin(MonitorPlugin):
+    name = "my_custom_metrics"
+    category = "general"
 
     def is_available(self) -> bool:
-        return True  # platform check
+        # Check system compatibility or dependencies here
+        return True
 
-    def collect(self) -> MyMetrics:
-        return MyMetrics(value=42.0)
-
-PLUGIN_INFO = {
-    "name": "my_plugin",
-    "category": "custom",
-    "class": MyPlugin,
-}
+    def collect(self) -> dict:
+        # Collect and return your metrics
+        return {
+            "custom_metric_1": 42,
+            "status": "online"
+        }
 ```
+
+3. Enable or customize your module inside your `raven.toml` under the `[modules]` header.
 
 ---
 
-## Docker Support
+## 🧪 Testing & Development
 
-Install with Docker extras for container monitoring:
+We use `pytest` for automated test suites. Before submitting pull requests, run:
 
 ```bash
-pip3 install -e ".[docker]"
+# Run the test suite
+uv run pytest
+
+# Check code formatting & lint issues
+uv run ruff check
+
+# Apply formatting
+uv run ruff format
 ```
-
----
-
-## Requirements
-
-- Python ≥ 3.11
-- Works on Linux, macOS, Windows, FreeBSD
 
 ---
 
