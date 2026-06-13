@@ -42,10 +42,12 @@ def create_app(config: RavenConfig | None = None) -> FastAPI:
     # ── Static files ─────────────────────────────────────────────────
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
+    # Pre-load HTML dashboard template in memory on startup
+    index_html = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
+
     # ── HTML dashboard ───────────────────────────────────────────────
     @app.get("/", response_class=HTMLResponse)
     async def dashboard():
-        index = _STATIC_DIR / "index.html"
-        return index.read_text(encoding="utf-8")
+        return index_html
 
     return app

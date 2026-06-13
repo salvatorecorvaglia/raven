@@ -86,11 +86,24 @@ class ContainersPlugin(MonitorPlugin):
                 self._docker_client = docker.from_env()
 
             for c in self._docker_client.containers.list(all=True):
+                # Retrieve the image name from attributes to avoid lazy-loading c.image API call
+                image_name = ""
+                if c.attrs:
+                    image_name = c.attrs.get("Config", {}).get("Image") or ""
+                    if not image_name:
+                        img_id = c.attrs.get("Image") or ""
+                        if img_id.startswith("sha256:"):
+                            image_name = img_id[7:19]
+                        else:
+                            image_name = img_id[:12]
+                if not image_name:
+                    image_name = c.short_id
+
                 containers.append(
                     ContainerInfo(
                         name=c.name or "",
                         container_id=c.short_id,
-                        image=str(c.image.tags[0]) if c.image.tags else str(c.image.id[:12]),
+                        image=image_name,
                         status=c.status,
                         runtime="docker",
                     )

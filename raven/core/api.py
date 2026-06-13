@@ -14,7 +14,8 @@ import logging
 import sys
 import time
 from contextlib import asynccontextmanager
-from dataclasses import asdict
+
+from raven.core.utils import serialize_model as asdict
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware

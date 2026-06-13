@@ -5,6 +5,8 @@ Centralised here to avoid duplication across plugins, widgets, and exporters.
 
 from __future__ import annotations
 
+from typing import Any
+
 import rich.text
 
 
@@ -93,3 +95,16 @@ def render_bar(
         t.append("]", style="dim")
     t.append(f" {pct:5.1f}%", style=f"bold {color}")
     return t
+
+
+def serialize_model(obj: Any) -> Any:
+    """Recursively convert Raven models to dict/list structures, bypassing slow dataclasses.asdict."""
+    if hasattr(obj, "__dataclass_fields__"):
+        return {f: serialize_model(getattr(obj, f)) for f in obj.__dataclass_fields__}
+    elif isinstance(obj, list):
+        return [serialize_model(x) for x in obj]
+    elif isinstance(obj, dict):
+        return {k: serialize_model(v) for k, v in obj.items()}
+    else:
+        return obj
+

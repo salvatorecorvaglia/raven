@@ -68,7 +68,12 @@ class Collector:
         now = time.time()
         ttl = max(0.5, self.config.general.refresh_interval / 2.0)
 
+        # Fast path: check cache without lock
+        if self._last_snapshot and (now - self._last_collected_at < ttl):
+            return self._last_snapshot
+
         with self._cache_lock:
+            # Double check cache inside lock
             if self._last_snapshot and (now - self._last_collected_at < ttl):
                 return self._last_snapshot
 
@@ -82,7 +87,7 @@ class Collector:
                     log.exception("Plugin %s failed during collection", plugin.name)
 
             self._last_snapshot = self._assemble(results)
-            self._last_collected_at = now
+            self._last_collected_at = time.time()  # set to the exact completion time
             return self._last_snapshot
 
     def collect_module(self, name: str) -> Any:
@@ -90,7 +95,12 @@ class Collector:
         now = time.time()
         ttl = max(0.5, self.config.general.refresh_interval / 2.0)
 
+        # Fast path check
+        if self._last_snapshot and (now - self._last_collected_at < ttl):
+            return getattr(self._last_snapshot, name, None)
+
         with self._cache_lock:
+            # Double check inside lock
             if self._last_snapshot and (now - self._last_collected_at < ttl):
                 return getattr(self._last_snapshot, name, None)
 

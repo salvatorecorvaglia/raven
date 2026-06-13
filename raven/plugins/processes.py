@@ -44,8 +44,9 @@ class ProcessesPlugin(MonitorPlugin):
 
                 # Compute CPU and memory percent. cpu_percent(interval=None) works properly
                 # when reusing the same Process instance across calls.
-                cpu = p.cpu_percent(interval=None)
-                mem = p.memory_percent()
+                with p.oneshot():
+                    cpu = p.cpu_percent(interval=None)
+                    mem = p.memory_percent()
                 raw_procs.append((p, {"pid": pid, "cpu_percent": cpu, "memory_percent": mem}))
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue

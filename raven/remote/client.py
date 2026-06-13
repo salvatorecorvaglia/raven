@@ -43,6 +43,8 @@ class RemoteCollector:
             address = f"http://{address}"
         self.base_url = address.rstrip("/")
         self.api_key = api_key
+        self._client: httpx.Client | None = None
+        self._async_client: httpx.AsyncClient | None = None
 
     def _headers(self) -> dict[str, str]:
         hdrs: dict[str, str] = {}
@@ -50,26 +52,48 @@ class RemoteCollector:
             hdrs["X-API-Key"] = self.api_key
         return hdrs
 
+    def _get_client(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(timeout=10)
+        return self._client
+
+    async def _get_async_client(self) -> httpx.AsyncClient:
+        if self._async_client is None:
+            self._async_client = httpx.AsyncClient(timeout=10)
+        return self._async_client
+
+    def close(self) -> None:
+        """Close the persistent synchronous HTTP client."""
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
+    async def close_async(self) -> None:
+        """Close the persistent asynchronous HTTP client."""
+        if self._async_client is not None:
+            await self._async_client.aclose()
+            self._async_client = None
+
     def collect(self) -> SystemSnapshot:
-        """Synchronous fetch of a remote snapshot."""
-        with httpx.Client(timeout=10) as client:
-            resp = client.get(
-                f"{self.base_url}/api/v1/snapshot",
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        """Synchronous fetch of a remote snapshot using a persistent client."""
+        client = self._get_client()
+        resp = client.get(
+            f"{self.base_url}/api/v1/snapshot",
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        data = resp.json()
         return self._parse(data)
 
     async def collect_async(self) -> SystemSnapshot:
-        """Async fetch of a remote snapshot."""
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(
-                f"{self.base_url}/api/v1/snapshot",
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        """Async fetch of a remote snapshot using a persistent client."""
+        client = await self._get_async_client()
+        resp = await client.get(
+            f"{self.base_url}/api/v1/snapshot",
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        data = resp.json()
         return self._parse(data)
 
     # ── Parsing ──────────────────────────────────────────────────────

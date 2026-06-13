@@ -94,7 +94,7 @@ This project uses PEP 484 type hints. If you add new parameters, functions, or c
 
 We use [pytest](https://docs.pytest.org/) for automated testing.
 
-- Place unit and integration tests in the [tests/](file:///Users/salvatorecorvaglia/github/raven/tests) directory.
+- Place unit and integration tests in the [tests/](tests/) directory.
 - Run the full test suite before submitting a PR:
   ```bash
   uv run pytest
@@ -105,7 +105,7 @@ We use [pytest](https://docs.pytest.org/) for automated testing.
 
 ## Project Structure
 
-Here is a quick overview of where different modules reside in the [raven/](file:///Users/salvatorecorvaglia/github/raven/raven) package:
+Here is a quick overview of where different modules reside in the [raven/](raven/) package:
 - `core/`: Core system monitoring modules and standard metric collectors.
 - `plugins/`: Extensible plugin system. To add a new metric collector, place it here (see `README.md` for a plugin example).
 - `tui/`: Textual-based terminal user interface components and styles (`.tcss`).

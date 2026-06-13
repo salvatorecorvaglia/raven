@@ -11,7 +11,7 @@
   * **Web Dashboard**: An elegant web UI powered by FastAPI and Vanilla HTML/CSS/JS. Features premium loading shimmers, connection status toasts, and dynamic charts.
 * **🐦‍⬛ Neofetch-style Fetch**: A quick terminal command to fetch system hardware specs, platform info, and resources.
 * **🔒 Remote Monitoring**: Run a secure agent on a remote server with timing-attack resistant API key authentication, and visualize its metrics locally.
-* **🔌 Extensible Plugins**: Easily write your own metrics collectors by inheriting from [MonitorPlugin](file:///Users/salvatorecorvaglia/github/raven/raven/plugins/base.py#L13).
+* **🔌 Extensible Plugins**: Easily write your own metrics collectors by inheriting from [MonitorPlugin](raven/plugins/base.py#L13).
 * **📈 High Performance**: Metrics are queried in parallel via thread pools, with smart caching and lightweight process queries to minimize CPU overhead.
 * **📥 Multi-format Exporting**: Print metrics directly to your terminal or save them as CSV, JSON, or plaintext.
 
@@ -21,14 +21,14 @@
 
 Raven is structured cleanly to separate collection logic, plugins, and frontends:
 
-* [raven/cli.py](file:///Users/salvatorecorvaglia/github/raven/raven/cli.py): CLI routing and argument definitions.
-* [raven/config.py](file:///Users/salvatorecorvaglia/github/raven/raven/config.py): TOML configuration schemas and verification logic.
-* [raven/core/](file:///Users/salvatorecorvaglia/github/raven/raven/core): Central coordinator containing the collector agent, type definitions, and standard protocol interfaces.
-* [raven/plugins/](file:///Users/salvatorecorvaglia/github/raven/raven/plugins): Discovered monitoring plugins (CPU, Memory, Disk, Containers, Network, Sensors, Processes, etc.).
-* [raven/tui/](file:///Users/salvatorecorvaglia/github/raven/raven/tui): Textual terminal widgets and layout CSS stylesheets (`.tcss`).
-* [raven/web/](file:///Users/salvatorecorvaglia/github/raven/raven/web): FastAPI backend and static web dashboard assets.
-* [raven/remote/](file:///Users/salvatorecorvaglia/github/raven/raven/remote): Server agent and client tools for remote metric sync.
-* [raven/export/](file:///Users/salvatorecorvaglia/github/raven/raven/export): Formatted data exporters.
+* [raven/cli.py](raven/cli.py): CLI routing and argument definitions.
+* [raven/config.py](raven/config.py): TOML configuration schemas and verification logic.
+* [raven/core/](raven/core/): Central coordinator containing the collector agent, type definitions, and standard protocol interfaces.
+* [raven/plugins/](raven/plugins/): Discovered monitoring plugins (CPU, Memory, Disk, Containers, Network, Sensors, Processes, etc.).
+* [raven/tui/](raven/tui/): Textual terminal widgets and layout CSS stylesheets (`.tcss`).
+* [raven/web/](raven/web/): FastAPI backend and static web dashboard assets.
+* [raven/remote/](raven/remote/): Server agent and client tools for remote metric sync.
+* [raven/export/](raven/export/): Formatted data exporters.
 
 ---
 
@@ -54,7 +54,7 @@ uv sync --all-extras --dev
 
 ## 💻 Usage & CLI Guide
 
-Raven offers a simple command-line structure routed through [raven/cli.py](file:///Users/salvatorecorvaglia/github/raven/raven/cli.py):
+Raven offers a simple command-line structure routed through [raven/cli.py](raven/cli.py):
 
 ### 1. Start the TUI (Default)
 Run Raven with no arguments to launch the Textual TUI dashboard:
@@ -109,7 +109,7 @@ Raven searches for settings in the following order:
 3. `~/.config/raven/raven.toml`.
 4. Fall back to internal defaults.
 
-Refer to [raven.example.toml](file:///Users/salvatorecorvaglia/github/raven/raven.example.toml) for customising ports, intervals, enabled modules, and security parameters:
+Refer to [raven.example.toml](raven.example.toml) for customising ports, intervals, enabled modules, and security parameters:
 
 ```toml
 [general]
@@ -145,8 +145,8 @@ api_key = ""
 
 All metrics collection modules are structured as plugins. To add your own custom collector:
 
-1. Create a Python file under the [raven/plugins/](file:///Users/salvatorecorvaglia/github/raven/raven/plugins) directory.
-2. Subclass [MonitorPlugin](file:///Users/salvatorecorvaglia/github/raven/raven/plugins/base.py#L13) and implement the abstract methods:
+1. Create a Python file under the [raven/plugins/](raven/plugins/) directory.
+2. Subclass [MonitorPlugin](raven/plugins/base.py#L13) and implement the abstract methods:
 
 ```python
 from raven.plugins.base import MonitorPlugin
