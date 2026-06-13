@@ -110,4 +110,3 @@ def serialize_model(obj: Any) -> Any:
         return {k: serialize_model(v) for k, v in obj.items()}
     else:
         return obj
-

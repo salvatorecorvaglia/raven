@@ -21,10 +21,35 @@ class DiskPlugin(MonitorPlugin):
 
         # Blocklist of slow network filesystems and system pseudo-filesystems
         SKIPPED_FSTYPES = {
-            "nfs", "nfs4", "cifs", "smbfs", "vboxsf", "sshfs", "afpfs", "davfs",
-            "gfs", "gfs2", "gpfs", "lustre", "tmpfs", "devtmpfs", "sysfs", "proc",
-            "devpts", "configfs", "debugfs", "securityfs", "fusectl", "pstore",
-            "bpf", "cgroup", "cgroup2", "autofs", "binfmt_misc", "mqueue", "hugetlbfs"
+            "nfs",
+            "nfs4",
+            "cifs",
+            "smbfs",
+            "vboxsf",
+            "sshfs",
+            "afpfs",
+            "davfs",
+            "gfs",
+            "gfs2",
+            "gpfs",
+            "lustre",
+            "tmpfs",
+            "devtmpfs",
+            "sysfs",
+            "proc",
+            "devpts",
+            "configfs",
+            "debugfs",
+            "securityfs",
+            "fusectl",
+            "pstore",
+            "bpf",
+            "cgroup",
+            "cgroup2",
+            "autofs",
+            "binfmt_misc",
+            "mqueue",
+            "hugetlbfs",
         }
 
         for part in psutil.disk_partitions(all=False):
