@@ -15,13 +15,12 @@ import sys
 import time
 from contextlib import asynccontextmanager
 
-from raven.core.utils import serialize_model as asdict
-
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from raven.config import RavenConfig
 from raven.core.collector import Collector
+from raven.core.utils import serialize_model as asdict
 
 log = logging.getLogger(__name__)
 

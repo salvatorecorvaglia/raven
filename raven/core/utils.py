@@ -98,7 +98,10 @@ def render_bar(
 
 
 def serialize_model(obj: Any) -> Any:
-    """Recursively convert Raven models to dict/list structures, bypassing slow dataclasses.asdict."""
+    """Recursively convert Raven models to dict/list structures.
+
+    Bypasses slow dataclasses.asdict.
+    """
     if hasattr(obj, "__dataclass_fields__"):
         return {f: serialize_model(getattr(obj, f)) for f in obj.__dataclass_fields__}
     elif isinstance(obj, list):
