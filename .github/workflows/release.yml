@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # ── checkout & toolchain ──────────────────────────────────────────
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -89,7 +89,7 @@ jobs:
 
       # ── Upload artifacts for the publish job ─────────────────────────
       - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-packages
           path: |
@@ -104,7 +104,7 @@ jobs:
       id-token: write
     steps:
       - name: Download dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: dist-packages
           path: dist
