@@ -32,6 +32,9 @@ env*/
 ENV/
 env.bak/
 venv.bak/
+.venv-formula/
+.venv-poet/
+.python-version
 
 # Environment variables & secrets
 .env
@@ -103,5 +106,6 @@ claude-settings.json
 .prompt-cache/
 .ai/
 .gemini/
+.antigravity/
 .antigravitycli/
 CLAUDE.md
