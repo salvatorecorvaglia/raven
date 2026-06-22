@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-22
+
+### Added
+
+- Added thread-safe locks (`threading.Lock` and `threading.RLock`) to `NetworkPlugin`, `ProcessesPlugin`, and `ContainersPlugin` to safeguard internal metrics caches and tickers during concurrent collections.
+- Added comprehensive unit tests for container monitoring plugins under `tests/test_containers_plugin.py`.
+- Added a configuration fallback test in `tests/test_config.py` to ensure scalar inputs for section configurations gracefully default.
+
+### Changed
+
+- Updated Textual TUI dashboard command routing to run the web/remote servers daemonized with `install_signal_handlers=False`, preventing signal registration errors in child threads.
+- Refactored `Collector` core module cache lookup to fetch full system snapshots on cache expiration instead of checking double locks.
+- Improved configuration parser in `raven/config.py` to gracefully fallback to default sub-configurations and warn when scalar values are supplied for configuration sections.
+- Improved plugin class instantiation in `plugin_manager.py` to gracefully handle errors (`Exception` or `TypeError`) and skip the failing plugin instead of crashing.
+- Optimized serialisation speed in exports by replacing dataclass `asdict` with a customized `serialize_model`.
+
+### Fixed
+
+- Resolved resource teardown during FastAPI application shutdown by awaiting `close_async()` on the metric collector inside the lifespan event.
+- Prevented potential crashes in the CLI `fetch` summary, text exporter, and TUI battery widget (`sensor_widget.py`) when the battery percent is not available or returns `None`.
+- Truncated mount points to 14 characters in `DiskWidget` layout to avoid visual overflow and text alignment issues.
+- Handled cases in `ContainerWidget` where Docker and LXC are installed/available but no containers are found vs when the engines themselves are missing.
+
 ## [0.2.1] - 2026-06-19
 
 ### Fixed

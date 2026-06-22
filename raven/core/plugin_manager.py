@@ -81,7 +81,14 @@ def get_enabled_plugins(config: RavenConfig) -> list[MonitorPlugin]:
         try:
             instance: MonitorPlugin = cls(config=config)
         except TypeError:
-            instance: MonitorPlugin = cls()
+            try:
+                instance: MonitorPlugin = cls()
+            except Exception:
+                log.exception("Plugin %s failed to instantiate — skipping", mod_name)
+                continue
+        except Exception:
+            log.exception("Plugin %s failed to instantiate — skipping", mod_name)
+            continue
 
         if instance.is_available():
             plugins.append(instance)

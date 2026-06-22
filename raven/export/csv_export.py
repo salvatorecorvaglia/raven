@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import csv
 import io
-from dataclasses import asdict
 
 from raven.core.models import SystemSnapshot
+from raven.core.utils import serialize_model as asdict
 from raven.export.base import BaseExporter
 
 

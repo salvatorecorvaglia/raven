@@ -12,6 +12,7 @@ from raven.plugins.base import MonitorPlugin
 # Prime psutil's internal cpu_percent counter so that the first real
 # ``collect()`` call returns a meaningful value instead of 0.0.
 psutil.cpu_percent(interval=None)
+psutil.cpu_percent(interval=None, percpu=True)
 
 
 class CpuPlugin(MonitorPlugin):

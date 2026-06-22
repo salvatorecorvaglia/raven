@@ -105,7 +105,8 @@ class TextExporter(BaseExporter):
             if snapshot.sensors.battery:
                 bat = snapshot.sensors.battery
                 plugged = "⚡" if bat.power_plugged else "🔋"
-                parts.append(f"  Battery: {bat.percent:.0f}% {plugged}")
+                pct_str = f"{bat.percent:.0f}%" if bat.percent is not None else "Unknown"
+                parts.append(f"  Battery: {pct_str} {plugged}")
             if snapshot.sensors.temperatures or snapshot.sensors.fans or snapshot.sensors.battery:
                 parts.append("")
 

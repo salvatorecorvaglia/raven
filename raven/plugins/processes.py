@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import psutil
 
 from raven.config import RavenConfig
@@ -17,6 +19,7 @@ class ProcessesPlugin(MonitorPlugin):
         super().__init__()
         self._config = config
         self._proc_cache: dict[int, psutil.Process] = {}
+        self._lock = threading.Lock()
 
     def is_available(self) -> bool:
         return True
@@ -31,30 +34,31 @@ class ProcessesPlugin(MonitorPlugin):
         raw_procs = []
         current_pids = set()
 
-        for proc in psutil.process_iter():
-            pid = proc.pid
-            current_pids.add(pid)
-            try:
-                # Reuse cached process object or cache the new one
-                if pid in self._proc_cache:
-                    p = self._proc_cache[pid]
-                else:
-                    p = proc
-                    self._proc_cache[pid] = p
+        with self._lock:
+            for proc in psutil.process_iter():
+                pid = proc.pid
+                current_pids.add(pid)
+                try:
+                    # Reuse cached process object or cache the new one
+                    if pid in self._proc_cache:
+                        p = self._proc_cache[pid]
+                    else:
+                        p = proc
+                        self._proc_cache[pid] = p
 
-                # Compute CPU and memory percent. cpu_percent(interval=None) works properly
-                # when reusing the same Process instance across calls.
-                with p.oneshot():
-                    cpu = p.cpu_percent(interval=None)
-                    mem = p.memory_percent()
-                raw_procs.append((p, {"pid": pid, "cpu_percent": cpu, "memory_percent": mem}))
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue
+                    # Compute CPU and memory percent. cpu_percent(interval=None) works properly
+                    # when reusing the same Process instance across calls.
+                    with p.oneshot():
+                        cpu = p.cpu_percent(interval=None)
+                        mem = p.memory_percent()
+                    raw_procs.append((p, {"pid": pid, "cpu_percent": cpu, "memory_percent": mem}))
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
 
-        # Clean up dead processes from the cache
-        dead_pids = set(self._proc_cache.keys()) - current_pids
-        for pid in dead_pids:
-            self._proc_cache.pop(pid, None)
+            # Clean up dead processes from the cache
+            dead_pids = set(self._proc_cache.keys()) - current_pids
+            for pid in dead_pids:
+                self._proc_cache.pop(pid, None)
 
         # Sort by CPU and memory usage to identify top active processes
         raw_procs.sort(

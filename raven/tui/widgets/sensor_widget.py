@@ -48,7 +48,8 @@ class SensorWidget(Static):
             text.append("  Battery\n", style="bold cyan")
             plugged = "⚡ Plugged" if bat.power_plugged else "🔋 Battery"
             color = "green" if (bat.percent or 0) > 20 else "red"
-            text.append(f"  {bat.percent:.0f}% {plugged}\n", style=color)
+            pct_str = f"{bat.percent:.0f}%" if bat.percent is not None else "Unknown"
+            text.append(f"  {pct_str} {plugged}\n", style=color)
 
         # Users
         if snap.users:

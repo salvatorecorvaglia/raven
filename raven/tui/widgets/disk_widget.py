@@ -22,7 +22,8 @@ class DiskWidget(Static):
             filled = int(12 * dp.percent / 100)
             bar = "█" * filled + "░" * (12 - filled)
 
-            text.append(f"  {dp.mountpoint:<14} ", style="")
+            mount_truncated = dp.mountpoint[:14]
+            text.append(f"  {mount_truncated:<14} ", style="")
             text.append(bar, style=color)
             text.append(f" {dp.percent:5.1f}%", style=f"bold {color}")
             text.append(f"  {human_bytes(dp.used)}/{human_bytes(dp.total)}\n", style="dim")

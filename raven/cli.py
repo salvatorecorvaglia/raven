@@ -235,6 +235,7 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
                     "host": config.web.host,
                     "port": config.web.port,
                     "log_level": "warning",
+                    "install_signal_handlers": False,
                 },
                 daemon=True,
             )
@@ -251,6 +252,7 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
                     "host": config.remote.host,
                     "port": config.remote.port,
                     "log_level": "warning",
+                    "install_signal_handlers": False,
                 },
                 daemon=True,
             )

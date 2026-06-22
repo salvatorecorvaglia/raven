@@ -169,6 +169,9 @@ class CustomMetricsPlugin(MonitorPlugin):
 
 3. Enable or customize your module inside your `raven.toml` under the `[modules]` header.
 
+> [!TIP]
+> **Thread Safety**: If your plugin keeps state between collection cycles (e.g. counters or cached query data), use a thread lock (such as `threading.Lock`) to make sure it is safe to access from parallel collection threads.
+
 ---
 
 ## 🧪 Testing & Development

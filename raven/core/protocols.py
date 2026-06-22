@@ -22,3 +22,11 @@ class MetricCollector(Protocol):
     async def collect_async(self) -> SystemSnapshot:
         """Run an async collection and return a snapshot."""
         ...
+
+    def close(self) -> None:
+        """Clean up synchronous collector resources."""
+        ...
+
+    async def close_async(self) -> None:
+        """Clean up asynchronous collector resources."""
+        ...

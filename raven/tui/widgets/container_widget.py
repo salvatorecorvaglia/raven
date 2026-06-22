@@ -38,7 +38,10 @@ class ContainerWidget(Static):
                 runtimes.append("Docker")
             if not containers.lxc_available:
                 runtimes.append("LXC")
-            text.append(f"  No containers ({', '.join(runtimes)} not found)\n", style="dim")
+            if runtimes:
+                text.append(f"  No containers ({', '.join(runtimes)} not found)\n", style="dim")
+            else:
+                text.append("  No containers detected\n", style="dim")
             self.update(text)
             return
 

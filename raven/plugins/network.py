@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import psutil
 
 from raven.core.models import NetworkInterface, NetworkMetrics
@@ -16,6 +18,7 @@ class NetworkPlugin(MonitorPlugin):
         super().__init__()
         self._ticks = 0
         self._conn_count = 0
+        self._lock = threading.Lock()
 
     def is_available(self) -> bool:
         return True
@@ -44,15 +47,17 @@ class NetworkPlugin(MonitorPlugin):
                 )
             )
 
-        # Connection count — throttle to once every 10 collect cycles (ticks)
-        self._ticks += 1
-        if self._ticks % 10 == 1 or self._ticks == 1:
-            try:
-                self._conn_count = len(psutil.net_connections(kind="inet"))
-            except (psutil.AccessDenied, OSError):
-                self._conn_count = 0
+        with self._lock:
+            # Connection count — throttle to once every 10 collect cycles (ticks)
+            self._ticks += 1
+            if self._ticks % 10 == 1 or self._ticks == 1:
+                try:
+                    self._conn_count = len(psutil.net_connections(kind="inet"))
+                except (psutil.AccessDenied, OSError):
+                    self._conn_count = 0
+            conn_count = self._conn_count
 
         return NetworkMetrics(
             interfaces=interfaces,
-            connections_count=self._conn_count,
+            connections_count=conn_count,
         )

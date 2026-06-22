@@ -120,6 +120,8 @@ def create_base_app(
                 await broadcast_task
             except asyncio.CancelledError:
                 pass
+        if hasattr(collector, "close_async"):
+            await collector.close_async()
         collector.close()
 
     app = FastAPI(

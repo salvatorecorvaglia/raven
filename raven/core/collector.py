@@ -99,16 +99,11 @@ class Collector:
         if self._last_snapshot and (now - self._last_collected_at < ttl):
             return getattr(self._last_snapshot, name, None)
 
-        with self._cache_lock:
-            # Double check inside lock
-            if self._last_snapshot and (now - self._last_collected_at < ttl):
-                return getattr(self._last_snapshot, name, None)
-
-        plugin = next((p for p in self.plugins if p.name == name), None)
-        if not plugin:
-            return None
-
-        return plugin.collect()
+        # Expired: trigger a full thread-safe collection to refresh the snapshot cache
+        self.collect()
+        if self._last_snapshot:
+            return getattr(self._last_snapshot, name, None)
+        return None
 
     async def collect_module_async(self, name: str) -> Any:
         """Async wrapper around collect_module."""

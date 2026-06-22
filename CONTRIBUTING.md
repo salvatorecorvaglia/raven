@@ -88,6 +88,9 @@ The CI pipeline will fail if Ruff checks or formatting fail.
 ### 🔒 Type Safety
 This project uses PEP 484 type hints. If you add new parameters, functions, or classes, ensure they are properly typed.
 
+### 🧵 Thread Safety
+If your custom plugin maintains internal state, caches query results, or tracks execution ticks between `collect()` cycles, ensure it is thread-safe. Metric collection may run concurrently across background threads or async tasks. Use locks (like `threading.Lock` or `threading.RLock`) to guard mutable shared state inside your plugin subclass.
+
 ---
 
 ## Testing

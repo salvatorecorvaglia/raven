@@ -6,6 +6,7 @@ import json
 import logging
 import shutil
 import subprocess
+import threading
 import time
 from typing import Any
 
@@ -30,38 +31,42 @@ class ContainersPlugin(MonitorPlugin):
         self._last_check: float = 0
         self._cache_ttl: float = 30.0  # re-check every 30 seconds
         self._docker_client: Any = None
+        self._lock = threading.RLock()
 
     def is_available(self) -> bool:
-        self._refresh_availability()
-        return bool(self._docker_ok or self._lxc_ok)
+        with self._lock:
+            self._refresh_availability()
+            return bool(self._docker_ok or self._lxc_ok)
 
     def collect(self) -> ContainerMetrics:
-        self._refresh_availability()
+        with self._lock:
+            self._refresh_availability()
 
-        containers: list[ContainerInfo] = []
+            containers: list[ContainerInfo] = []
 
-        if self._docker_ok:
-            containers.extend(self._collect_docker())
-        if self._lxc_ok:
-            containers.extend(self._collect_lxc())
+            if self._docker_ok:
+                containers.extend(self._collect_docker())
+            if self._lxc_ok:
+                containers.extend(self._collect_lxc())
 
-        return ContainerMetrics(
-            containers=containers,
-            docker_available=bool(self._docker_ok),
-            lxc_available=bool(self._lxc_ok),
-        )
+            return ContainerMetrics(
+                containers=containers,
+                docker_available=bool(self._docker_ok),
+                lxc_available=bool(self._lxc_ok),
+            )
 
     # ── Availability caching ─────────────────────────────────────────
 
     def _refresh_availability(self) -> None:
         """Re-check Docker/LXC availability if the cache has expired."""
-        now = time.monotonic()
-        if self._docker_ok is not None and (now - self._last_check) < self._cache_ttl:
-            return
+        with self._lock:
+            now = time.monotonic()
+            if self._docker_ok is not None and (now - self._last_check) < self._cache_ttl:
+                return
 
-        self._docker_ok = self._check_docker()
-        self._lxc_ok = shutil.which("lxc") is not None
-        self._last_check = now
+            self._docker_ok = self._check_docker()
+            self._lxc_ok = shutil.which("lxc") is not None
+            self._last_check = now
 
     def _check_docker(self) -> bool:
         try:
