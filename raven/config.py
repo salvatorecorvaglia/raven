@@ -171,7 +171,10 @@ def _dict_to_config(data: dict[str, Any]) -> RavenConfig:
     for section_name, cls in section_classes.items():
         raw = data.get(section_name, {})
         if not isinstance(raw, dict):
-            log.warning("Config section [%s] must be a table — ignoring invalid values", section_name)
+            log.warning(
+                "Config section [%s] must be a table — ignoring invalid values",
+                section_name,
+            )
             raw = {}
         valid_keys = {f.name for f in fields(cls)}
         filtered: dict[str, Any] = {}

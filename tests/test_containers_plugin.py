@@ -1,6 +1,4 @@
-import sys
 from unittest.mock import MagicMock, patch
-import pytest
 
 from raven.plugins.containers import ContainersPlugin
 
@@ -24,17 +22,17 @@ def test_containers_plugin_docker_only():
     mock_container.short_id = "abc123def"
     mock_container.status = "running"
     mock_container.attrs = {"Config": {"Image": "nginx:latest"}}
-    
+
     mock_client.containers.list.return_value = [mock_container]
     mock_docker.from_env.return_value = mock_client
-    
+
     with patch("shutil.which", return_value=None), \
          patch.dict("sys.modules", {"docker": mock_docker}):
         plugin = ContainersPlugin()
         assert plugin.is_available() is True
         assert plugin._docker_ok is True
         assert plugin._lxc_ok is False
-        
+
         metrics = plugin.collect()
         assert metrics.docker_available is True
         assert metrics.lxc_available is False
@@ -59,7 +57,7 @@ def test_containers_plugin_lxc_only():
     mock_result = MagicMock()
     mock_result.returncode = 0
     mock_result.stdout = mock_lxc_list_json
-    
+
     with patch("shutil.which", return_value="/usr/bin/lxc"), \
          patch("subprocess.run", return_value=mock_result), \
          patch.dict("sys.modules", {"docker": None}):
@@ -67,7 +65,7 @@ def test_containers_plugin_lxc_only():
         assert plugin.is_available() is True
         assert plugin._docker_ok is False
         assert plugin._lxc_ok is True
-        
+
         metrics = plugin.collect()
         assert metrics.docker_available is False
         assert metrics.lxc_available is True
