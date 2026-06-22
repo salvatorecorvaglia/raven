@@ -85,12 +85,8 @@ def test_config_validation():
 
 def test_config_scalar_sections():
     # Test that scalar values in place of config sections are ignored and fallback to defaults
-    raw_data = {
-        "general": 123,
-        "web": True,
-        "remote": {"port": 9090}
-    }
+    raw_data = {"general": 123, "web": True, "remote": {"port": 9090}}
     cfg = _dict_to_config(raw_data)
     assert cfg.general.refresh_interval == 2  # default
-    assert cfg.web.port == 8080               # default
-    assert cfg.remote.port == 9090            # custom overridden value
+    assert cfg.web.port == 8080  # default
+    assert cfg.remote.port == 9090  # custom overridden value

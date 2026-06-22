@@ -4,8 +4,7 @@ from raven.plugins.containers import ContainersPlugin
 
 
 def test_containers_plugin_unavailable():
-    with patch("shutil.which", return_value=None), \
-         patch.dict("sys.modules", {"docker": None}):
+    with patch("shutil.which", return_value=None), patch.dict("sys.modules", {"docker": None}):
         plugin = ContainersPlugin()
         assert plugin.is_available() is False
         metrics = plugin.collect()
@@ -26,8 +25,10 @@ def test_containers_plugin_docker_only():
     mock_client.containers.list.return_value = [mock_container]
     mock_docker.from_env.return_value = mock_client
 
-    with patch("shutil.which", return_value=None), \
-         patch.dict("sys.modules", {"docker": mock_docker}):
+    with (
+        patch("shutil.which", return_value=None),
+        patch.dict("sys.modules", {"docker": mock_docker}),
+    ):
         plugin = ContainersPlugin()
         assert plugin.is_available() is True
         assert plugin._docker_ok is True
@@ -58,9 +59,11 @@ def test_containers_plugin_lxc_only():
     mock_result.returncode = 0
     mock_result.stdout = mock_lxc_list_json
 
-    with patch("shutil.which", return_value="/usr/bin/lxc"), \
-         patch("subprocess.run", return_value=mock_result), \
-         patch.dict("sys.modules", {"docker": None}):
+    with (
+        patch("shutil.which", return_value="/usr/bin/lxc"),
+        patch("subprocess.run", return_value=mock_result),
+        patch.dict("sys.modules", {"docker": None}),
+    ):
         plugin = ContainersPlugin()
         assert plugin.is_available() is True
         assert plugin._docker_ok is False

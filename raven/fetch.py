@@ -123,9 +123,7 @@ def run_fetch(config: RavenConfig | None = None) -> None:
     if sensors.battery:
         plugged = "⚡ plugged" if sensors.battery.power_plugged else "🔋 battery"
         pct_str = (
-            f"{sensors.battery.percent:.0f}%"
-            if sensors.battery.percent is not None
-            else "Unknown"
+            f"{sensors.battery.percent:.0f}%" if sensors.battery.percent is not None else "Unknown"
         )
         lines.append(f"[bold]Battery[/bold]  {pct_str} {plugged}")
 
