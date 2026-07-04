@@ -109,7 +109,7 @@ We use [pytest](https://docs.pytest.org/) for automated testing.
 ## Project Structure
 
 Here is a quick overview of where different modules reside in the [raven/](raven/) package:
-- `core/`: Core system monitoring modules and standard metric collectors.
+- `core/`: Core system monitoring modules, standard metric collectors, and background server runners.
 - `plugins/`: Extensible plugin system. To add a new metric collector, place it here (see `README.md` for a plugin example).
 - `tui/`: Textual-based terminal user interface components and styles (`.tcss`).
 - `web/`: FastAPI web dashboard backend and static assets (HTML/CSS/JS).

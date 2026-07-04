@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-05
+
+### Added
+
+- Added timing-attack resistant API key authentication for remote monitoring servers (`serve` command) and the web interface (`web` command).
+- Added an interactive Auth Modal overlay to the Web Dashboard for entering the API key upon connection failure (HTTP 4001 status), with key persistence in `sessionStorage` and `localStorage`.
+- Added background server orchestration in `raven/core/runner.py` to daemonize web and remote server execution, decoupling uvicorn thread spawning from CLI routing.
+- Added CLI/TUI synchronization to forward the configured API key to the client `RemoteCollector` automatically.
+- Added integration and unit tests for authenticated remote connections and background runner daemon threads.
+
+
 ## [0.3.0] - 2026-06-22
 
 ### Added

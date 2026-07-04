@@ -23,7 +23,7 @@ Raven is structured cleanly to separate collection logic, plugins, and frontends
 
 * [raven/cli.py](raven/cli.py): CLI routing and argument definitions.
 * [raven/config.py](raven/config.py): TOML configuration schemas and verification logic.
-* [raven/core/](raven/core/): Central coordinator containing the collector agent, type definitions, and standard protocol interfaces.
+* [raven/core/](raven/core/): Central coordinator containing the collector agent, type definitions, background server runner, and standard protocol interfaces.
 * [raven/plugins/](raven/plugins/): Discovered monitoring plugins (CPU, Memory, Disk, Containers, Network, Sensors, Processes, etc.).
 * [raven/tui/](raven/tui/): Textual terminal widgets and layout CSS stylesheets (`.tcss`).
 * [raven/web/](raven/web/): FastAPI backend and static web dashboard assets.
