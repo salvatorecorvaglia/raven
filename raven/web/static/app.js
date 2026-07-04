@@ -690,22 +690,52 @@
     });
 
     // ── WebSocket ───────────────────────────────────────────────────────
+    function showAuthModal() {
+        const modal = document.getElementById("auth-modal");
+        if (modal) {
+            modal.style.display = "flex";
+            const input = document.getElementById("auth-key-input");
+            if (input) {
+                input.value = "";
+                input.focus();
+            }
+        }
+    }
+
+    function hideAuthModal() {
+        const modal = document.getElementById("auth-modal");
+        if (modal) {
+            modal.style.display = "none";
+        }
+    }
+
     function connect() {
         const proto = location.protocol === "https:" ? "wss:" : "ws:";
         const params = new URLSearchParams(location.search);
-        const apiKey = params.get("api_key") || "";
+        let apiKey = params.get("api_key");
+
+        if (apiKey) {
+            sessionStorage.setItem("raven_api_key", apiKey);
+            localStorage.setItem("raven_api_key", apiKey);
+            params.delete("api_key");
+            const newUrl = location.pathname + (params.toString() ? "?" + params.toString() : "");
+            window.history.replaceState({}, document.title, newUrl);
+        } else {
+            apiKey = sessionStorage.getItem("raven_api_key") || localStorage.getItem("raven_api_key") || "";
+        }
+
         const url = proto + "//" + location.host + "/ws/live";
         ws = new WebSocket(url);
 
         ws.onopen = () => {
             // Send API key as first message (avoids leaking in URL/logs)
-            if (apiKey) {
-                ws.send(apiKey);
-            }
+            ws.send(apiKey);
+
             const badge = document.getElementById("status-badge");
             badge.textContent = "Live";
             badge.classList.add("connected");
             document.body.classList.remove("disconnected");
+            hideAuthModal();
 
             // Fetch version from health endpoint
             fetch("/health")
@@ -737,12 +767,20 @@
             }
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
             const badge = document.getElementById("status-badge");
-            badge.textContent = "Reconnecting…";
             badge.classList.remove("connected");
             document.body.classList.add("disconnected");
-            setTimeout(connect, RECONNECT_DELAY);
+
+            if (event.code === 4001) {
+                badge.textContent = "Auth Required";
+                sessionStorage.removeItem("raven_api_key");
+                localStorage.removeItem("raven_api_key");
+                showAuthModal();
+            } else {
+                badge.textContent = "Reconnecting…";
+                setTimeout(connect, RECONNECT_DELAY);
+            }
         };
 
         ws.onerror = () => {
@@ -795,5 +833,20 @@
     if (document.body.classList.contains("light-theme")) {
         updateChartTheme();
     }
+    const authForm = document.getElementById("auth-form");
+    if (authForm) {
+        authForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const input = document.getElementById("auth-key-input");
+            if (input) {
+                const key = input.value.trim();
+                sessionStorage.setItem("raven_api_key", key);
+                localStorage.setItem("raven_api_key", key);
+                hideAuthModal();
+                connect();
+            }
+        });
+    }
+
     connect();
 })();

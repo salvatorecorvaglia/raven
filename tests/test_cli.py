@@ -46,3 +46,19 @@ def test_cli_subcommands_routing():
     with patch("raven.cli._cmd_serve") as mock_serve:
         main(["serve", "--host", "0.0.0.0", "-p", "9090"])
         mock_serve.assert_called_once()
+
+
+def test_cli_remote_collector_key_propagation(dummy_snapshot):
+    from raven.config import RavenConfig, RemoteConfig
+
+    mock_cfg = RavenConfig(remote=RemoteConfig(api_key="super-secret"))
+    with patch("raven.cli.load_config", return_value=mock_cfg):
+        with patch("raven.remote.client.RemoteCollector") as mock_rc:
+            mock_rc.return_value.collect.return_value = dummy_snapshot
+            main(["--remote", "localhost:9090", "print"])
+            mock_rc.assert_called_once_with("localhost:9090", api_key="super-secret")
+
+        with patch("raven.remote.client.RemoteCollector") as mock_rc:
+            with patch("raven.tui.app.RavenApp"):
+                main(["--remote", "localhost:9090"])
+                mock_rc.assert_called_once_with("localhost:9090", api_key="super-secret")

@@ -163,6 +163,19 @@
         <span id="last-update">Last update: —</span>
     </footer>
 
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-logo">🐦‍⬛</span>
+            <h2>Authentication Required</h2>
+            <p>Please enter the API key to connect to the Raven agent.</p>
+            <form id="auth-form">
+                <input type="password" id="auth-key-input" placeholder="API Key" required autofocus>
+                <button type="submit" class="btn-primary">Connect</button>
+            </form>
+        </div>
+    </div>
+
     <script src="/static/app.js"></script>
 </body>
 </html>

@@ -37,9 +37,12 @@ class CpuPlugin(MonitorPlugin):
 
         cpu_stats = psutil.cpu_stats()
 
+        percent_per_core = psutil.cpu_percent(interval=0, percpu=True)
+        percent_overall = sum(percent_per_core) / len(percent_per_core) if percent_per_core else 0.0
+
         return CpuMetrics(
-            percent_overall=psutil.cpu_percent(interval=0),
-            percent_per_core=psutil.cpu_percent(interval=0, percpu=True),
+            percent_overall=percent_overall,
+            percent_per_core=percent_per_core,
             core_count_logical=psutil.cpu_count(logical=True) or 0,
             core_count_physical=psutil.cpu_count(logical=False),
             frequency_current_mhz=freq.current if freq else None,

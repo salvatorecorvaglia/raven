@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 import threading
 
 import psutil
@@ -33,7 +34,7 @@ class NetworkPlugin(MonitorPlugin):
             iface_addrs: list[str] = []
             if iface_name in addrs:
                 for addr in addrs[iface_name]:
-                    if addr.family.name in ("AF_INET", "AF_INET6"):
+                    if addr.family in (socket.AF_INET, socket.AF_INET6):
                         iface_addrs.append(addr.address)
 
             interfaces.append(

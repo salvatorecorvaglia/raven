@@ -138,3 +138,44 @@ async def test_remote_collector_integration_async(mock_config):
     finally:
         server.should_exit = True
         thread.join(timeout=2)
+
+
+def test_remote_collector_auth_failure_propagation():
+    from unittest.mock import MagicMock, patch
+
+    import httpx
+
+    client = RemoteCollector(address="http://localhost:9090", api_key="wrong-key")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 401
+    mock_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+        message="Unauthorized",
+        request=MagicMock(),
+        response=mock_resp,
+    )
+
+    with patch("httpx.Client.get", return_value=mock_resp):
+        with pytest.raises(httpx.HTTPStatusError):
+            client.collect()
+
+
+@pytest.mark.asyncio
+async def test_remote_collector_auth_failure_propagation_async():
+    from unittest.mock import MagicMock, patch
+
+    import httpx
+
+    client = RemoteCollector(address="http://localhost:9090", api_key="wrong-key")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 401
+    mock_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+        message="Unauthorized",
+        request=MagicMock(),
+        response=mock_resp,
+    )
+
+    with patch("httpx.AsyncClient.get", return_value=mock_resp):
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.collect_async()

@@ -60,7 +60,11 @@ class RavenApp(App):
 
         self._config = config or load_config()
         self._collector: MetricCollector = collector or Collector(self._config)
-        self._sort_index = 0
+        sort_by = self._config.processes.sort_by
+        if sort_by in _SORT_CYCLE:
+            self._sort_index = _SORT_CYCLE.index(sort_by)
+        else:
+            self._sort_index = 0
 
     def compose(self) -> ComposeResult:
         with Container(id="dashboard"):

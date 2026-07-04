@@ -17,7 +17,9 @@ class ProcessesPlugin(MonitorPlugin):
 
     def __init__(self, config: RavenConfig | None = None) -> None:
         super().__init__()
-        self._config = config
+        from raven.config import load_config
+
+        self._config = config or load_config()
         self._proc_cache: dict[int, psutil.Process] = {}
         self._lock = threading.Lock()
 
@@ -25,11 +27,8 @@ class ProcessesPlugin(MonitorPlugin):
         return True
 
     def collect(self) -> list[ProcessInfo]:
-        from raven.config import load_config
-
-        config = self._config or load_config()
         # Retrieve at least 100 processes or twice the display count to support sorting in TUI/web
-        limit = max(100, config.processes.max_display * 2)
+        limit = max(100, self._config.processes.max_display * 2)
 
         raw_procs = []
         current_pids = set()

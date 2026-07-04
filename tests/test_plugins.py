@@ -15,7 +15,7 @@ from raven.plugins.users import UsersPlugin
 @patch("psutil.cpu_freq", create=True)
 @patch("psutil.getloadavg", create=True)
 def test_cpu_plugin(mock_loadavg, mock_freq, mock_count, mock_percent):
-    mock_percent.return_value = 15.0
+    mock_percent.return_value = [15.0, 15.0, 15.0, 15.0]
     mock_count.return_value = 4
     mock_freq.return_value = MagicMock(current=2500.0, max=3000.0)
     mock_loadavg.return_value = (1.0, 1.0, 1.0)
@@ -216,3 +216,22 @@ def test_processes_plugin_caching(mock_proc_iter):
     metrics3 = plugin.collect()
     assert len(metrics3) == 0
     assert len(plugin._proc_cache) == 0
+
+
+def test_processes_plugin_config_cache():
+    from raven.config import ProcessesConfig, RavenConfig
+
+    custom_cfg = RavenConfig(processes=ProcessesConfig(max_display=5))
+    plugin = ProcessesPlugin(config=custom_cfg)
+    assert plugin._config is custom_cfg
+
+    with patch("raven.config.load_config") as mock_load:
+        mock_load.return_value = custom_cfg
+        plugin_auto = ProcessesPlugin()
+        assert plugin_auto._config is custom_cfg
+        mock_load.assert_called_once()
+
+        # Call collect and make sure load_config is NOT called again
+        with patch("psutil.process_iter", return_value=[]):
+            plugin_auto.collect()
+            mock_load.assert_called_once()

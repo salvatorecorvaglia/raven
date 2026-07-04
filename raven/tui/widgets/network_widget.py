@@ -22,10 +22,9 @@ class NetworkWidget(Static):
         text = Text()
         text.append("  Network\n", style="bold cyan")
 
-        for iface in net.interfaces[:5]:
-            if iface.name.startswith("lo"):
-                continue
+        non_lo_interfaces = [i for i in net.interfaces if not i.name.startswith("lo")]
 
+        for iface in non_lo_interfaces[:5]:
             # Calculate per-second rates
             prev_s = self._prev_sent.get(iface.name, iface.bytes_sent)
             prev_r = self._prev_recv.get(iface.name, iface.bytes_recv)

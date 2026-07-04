@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import threading
 import urllib.parse
 from typing import TYPE_CHECKING
 
@@ -164,7 +163,7 @@ def _cmd_print(args: argparse.Namespace, config: RavenConfig) -> None:
     if args.remote:
         from raven.remote.client import RemoteCollector
 
-        collector = RemoteCollector(args.remote)
+        collector = RemoteCollector(args.remote, api_key=config.remote.api_key)
     else:
         collector = Collector(config)
 
@@ -187,7 +186,6 @@ def _cmd_print(args: argparse.Namespace, config: RavenConfig) -> None:
 
 
 def _cmd_web(args: argparse.Namespace, config: RavenConfig) -> None:
-    import uvicorn
 
     from raven.web.server import create_app
 
@@ -200,7 +198,6 @@ def _cmd_web(args: argparse.Namespace, config: RavenConfig) -> None:
 
 
 def _cmd_serve(args: argparse.Namespace, config: RavenConfig) -> None:
-    import uvicorn
 
     from raven.remote.server import create_remote_app
 
@@ -217,46 +214,16 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
     if remote_addr:
         from raven.remote.client import RemoteCollector
 
-        collector = RemoteCollector(remote_addr)
+        collector = RemoteCollector(remote_addr, api_key=config.remote.api_key)
     else:
         from raven.core.collector import Collector
 
         collector = Collector(config)
 
     if not remote_addr:
-        if config.web.enabled:
-            from raven.web.server import create_app
+        from raven.core.runner import start_background_servers
 
-            web_app = create_app(config)
-            t = threading.Thread(
-                target=uvicorn.run,
-                args=(web_app,),
-                kwargs={
-                    "host": config.web.host,
-                    "port": config.web.port,
-                    "log_level": "warning",
-                    "install_signal_handlers": False,
-                },
-                daemon=True,
-            )
-            t.start()
-
-        if config.remote.enabled:
-            from raven.remote.server import create_remote_app
-
-            remote_app = create_remote_app(config)
-            t = threading.Thread(
-                target=uvicorn.run,
-                args=(remote_app,),
-                kwargs={
-                    "host": config.remote.host,
-                    "port": config.remote.port,
-                    "log_level": "warning",
-                    "install_signal_handlers": False,
-                },
-                daemon=True,
-            )
-            t.start()
+        start_background_servers(config)
 
     from raven.tui.app import RavenApp
 
