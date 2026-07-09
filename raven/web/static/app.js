@@ -31,6 +31,33 @@
         return String(str).replace(/[&<>"']/g, (c) => map[c]);
     }
 
+    // Encrypts/obfuscates the API key before storage to prevent clear text exposure in localStorage/sessionStorage.
+    function encryptKey(text) {
+        if (!text) return "";
+        const salt = "raven_secure_obfuscation_salt";
+        let result = "";
+        for (let i = 0; i < text.length; i++) {
+            result += String.fromCharCode(text.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+        }
+        return btoa(result);
+    }
+
+    // Decrypts the stored API key. Falls back to returning the ciphertext directly if it's not base64 encoded.
+    function decryptKey(ciphertext) {
+        if (!ciphertext) return "";
+        try {
+            const decoded = atob(ciphertext);
+            const salt = "raven_secure_obfuscation_salt";
+            let result = "";
+            for (let i = 0; i < decoded.length; i++) {
+                result += String.fromCharCode(decoded.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+            }
+            return result;
+        } catch (e) {
+            return ciphertext;
+        }
+    }
+
     function humanBytes(bytes) {
         const units = ["B", "KB", "MB", "GB", "TB"];
         let i = 0;
@@ -715,13 +742,13 @@
         let apiKey = params.get("api_key");
 
         if (apiKey) {
-            sessionStorage.setItem("raven_api_key", apiKey);
-            localStorage.setItem("raven_api_key", apiKey);
+            sessionStorage.setItem("raven_api_key", encryptKey(apiKey));
+            localStorage.setItem("raven_api_key", encryptKey(apiKey));
             params.delete("api_key");
             const newUrl = location.pathname + (params.toString() ? "?" + params.toString() : "");
             window.history.replaceState({}, document.title, newUrl);
         } else {
-            apiKey = sessionStorage.getItem("raven_api_key") || localStorage.getItem("raven_api_key") || "";
+            apiKey = decryptKey(sessionStorage.getItem("raven_api_key") || localStorage.getItem("raven_api_key") || "");
         }
 
         const url = proto + "//" + location.host + "/ws/live";
@@ -840,8 +867,8 @@
             const input = document.getElementById("auth-key-input");
             if (input) {
                 const key = input.value.trim();
-                sessionStorage.setItem("raven_api_key", key);
-                localStorage.setItem("raven_api_key", key);
+                sessionStorage.setItem("raven_api_key", encryptKey(key));
+                localStorage.setItem("raven_api_key", encryptKey(key));
                 hideAuthModal();
                 connect();
             }
