@@ -91,6 +91,11 @@ This project uses PEP 484 type hints. If you add new parameters, functions, or c
 ### 🧵 Thread Safety
 If your custom plugin maintains internal state, caches query results, or tracks execution ticks between `collect()` cycles, ensure it is thread-safe. Metric collection may run concurrently across background threads or async tasks. Use locks (like `threading.Lock` or `threading.RLock`) to guard mutable shared state inside your plugin subclass.
 
+### 🛡️ Security Guidelines
+- **API Authentication**: If you introduce new REST endpoints or WebSocket APIs, ensure they are protected by the API key security middleware.
+- **Timing-Attack Resistance**: Always use timing-safe comparison functions like `hmac.compare_digest` when validating API keys, tokens, or credentials.
+- **Obfuscated Browser Storage**: Never store clear-text API keys or sensitive credentials in client-side browser storage (e.g., `localStorage` or `sessionStorage`). Apply the existing pattern of XOR obfuscation with a secure salt.
+
 ---
 
 ## Testing
@@ -103,6 +108,8 @@ We use [pytest](https://docs.pytest.org/) for automated testing.
   uv run pytest
   ```
 - Make sure to add tests for any new features or bug fixes you implement.
+- **Testing Authenticated Paths**: If you add or modify API/WebSocket endpoints, write tests verifying both authenticated (with valid key) and unauthenticated (missing or invalid key) flows.
+- **Cross-Platform Compatibility**: Raven targets **Linux, BSD, macOS, and Windows** across Python **3.11, 3.12, and 3.13**. Use `pytest.mark.skipif` to conditionally skip checks that depend on OS-specific commands or specs.
 
 ---
 

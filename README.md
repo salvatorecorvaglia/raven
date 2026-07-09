@@ -195,7 +195,18 @@ uv run ruff format
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 🔐 Security
+## 🔐 Security & Authentication
+
+Raven supports timing-attack resistant API key authentication to secure web and remote server execution:
+
+* **Configuring API Keys**: Set the `api_key` under the `[web]` and `[remote]` headers in your `raven.toml`. Leaving the value empty disables authentication.
+* **Timing-Safe Checks**: Server-side comparisons use `hmac.compare_digest` to safeguard against timing-attacks.
+* **REST & WebSockets API**:
+  * REST endpoints require client requests to supply the `X-API-Key` HTTP header.
+  * WebSocket streams authenticate via the first message sent over the socket to avoid leaking credentials in URL parameters. Connection failure closes the socket with status code `4001`.
+* **Obfuscated Browser Storage**: The Web Dashboard automatically obfuscates keys saved in `localStorage` and `sessionStorage` using a XOR cipher with a secure salt, preventing raw clear-text exposure.
+* **Clean URLs**: Query parameters containing keys (e.g., `?api_key=...`) are automatically read, stored in obfuscated format, and stripped from the browser's address bar to keep query logs clean.
+* **Open Bind Warnings**: Starting a server on `0.0.0.0` (all network interfaces) without a configured API key prints a console warning advising either key configuration or binding to `127.0.0.1`.
 
 If you discover a security vulnerability, please see our [Security Policy](SECURITY.md).
 
