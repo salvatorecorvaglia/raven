@@ -33,15 +33,7 @@ class ContainerWidget(Static):
         text.append("  Containers\n", style="bold cyan")
 
         if not containers.containers:
-            runtimes = []
-            if not containers.docker_available:
-                runtimes.append("Docker")
-            if not containers.lxc_available:
-                runtimes.append("LXC")
-            if runtimes:
-                text.append(f"  No containers ({', '.join(runtimes)} not found)\n", style="dim")
-            else:
-                text.append("  No containers detected\n", style="dim")
+            text.append("  No containers detected\n", style="dim")
             self.update(text)
             return
 

@@ -1,10 +1,6 @@
 import dataclasses
-import socket
-import threading
-import time
 
 import pytest
-import uvicorn
 
 from raven.core.models import SystemSnapshot
 from raven.remote.client import RemoteCollector
@@ -70,74 +66,35 @@ def test_client_parse_robustness():
 
 
 def test_remote_collector_integration(mock_config):
-    # Get a free port
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
+    from fastapi.testclient import TestClient
 
     app = create_remote_app(mock_config)
+    client = RemoteCollector(address="http://localhost:9090")
 
-    class ThreadSafeServer(uvicorn.Server):
-        def install_signal_handlers(self):
-            pass
+    mock_client = TestClient(app, base_url="http://localhost:9090")
+    client._client = mock_client
 
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
-    server = ThreadSafeServer(config)
-
-    def run_server():
-        server.run()
-
-    thread = threading.Thread(target=run_server, daemon=True)
-    thread.start()
-
-    time.sleep(0.5)
-
-    try:
-        client = RemoteCollector(address=f"127.0.0.1:{port}")
-        snapshot = client.collect()
-        assert snapshot is not None
-        assert snapshot.cpu is not None
-        assert snapshot.timestamp > 0
-    finally:
-        server.should_exit = True
-        thread.join(timeout=2)
+    snapshot = client.collect()
+    assert snapshot is not None
+    assert snapshot.cpu is not None
+    assert snapshot.timestamp > 0
 
 
 @pytest.mark.asyncio
 async def test_remote_collector_integration_async(mock_config):
-    # Get a free port
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
+    import httpx
 
     app = create_remote_app(mock_config)
+    client = RemoteCollector(address="http://localhost:9090")
 
-    class ThreadSafeServer(uvicorn.Server):
-        def install_signal_handlers(self):
-            pass
+    transport = httpx.ASGITransport(app=app)
+    mock_client = httpx.AsyncClient(transport=transport, base_url="http://localhost:9090")
+    client._async_client = mock_client
 
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
-    server = ThreadSafeServer(config)
-
-    def run_server():
-        server.run()
-
-    thread = threading.Thread(target=run_server, daemon=True)
-    thread.start()
-
-    time.sleep(0.5)
-
-    try:
-        client = RemoteCollector(address=f"127.0.0.1:{port}")
-        snapshot = await client.collect_async()
-        assert snapshot is not None
-        assert snapshot.cpu is not None
-        assert snapshot.timestamp > 0
-    finally:
-        server.should_exit = True
-        thread.join(timeout=2)
+    snapshot = await client.collect_async()
+    assert snapshot is not None
+    assert snapshot.cpu is not None
+    assert snapshot.timestamp > 0
 
 
 def test_remote_collector_auth_failure_propagation():

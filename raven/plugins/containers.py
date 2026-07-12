@@ -123,20 +123,35 @@ class ContainersPlugin(MonitorPlugin):
     def _collect_lxc() -> list[ContainerInfo]:
         containers: list[ContainerInfo] = []
         try:
-            result = subprocess.run(
+            process = subprocess.Popen(
                 ["lxc", "list", "--format", "json"],
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=5,
             )
-            if result.returncode != 0:
-                return containers
+            try:
+                # Read at most _LXC_MAX_OUTPUT + 1 characters to prevent memory blowup (SEC-4)
+                stdout = process.stdout.read(_LXC_MAX_OUTPUT + 1)
+                if len(stdout.encode("utf-8", errors="ignore")) > _LXC_MAX_OUTPUT:
+                    process.kill()
+                    log.warning(
+                        "LXC output exceeded %d bytes, terminating process",
+                        _LXC_MAX_OUTPUT,
+                    )
+                    return containers
 
-            # SEC-4: Guard against oversized output
-            stdout = result.stdout
-            if len(stdout) > _LXC_MAX_OUTPUT:
-                log.warning("LXC output exceeded %d bytes, truncating", _LXC_MAX_OUTPUT)
-                return containers
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    log.warning("LXC list command timed out")
+                    return containers
+
+                if process.returncode != 0:
+                    return containers
+            except Exception:
+                process.kill()
+                raise
 
             data: list[dict[str, Any]] = json.loads(stdout)
             for entry in data:

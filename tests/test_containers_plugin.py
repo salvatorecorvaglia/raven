@@ -55,13 +55,14 @@ def test_containers_plugin_lxc_only():
             }
         }
     ]"""
-    mock_result = MagicMock()
-    mock_result.returncode = 0
-    mock_result.stdout = mock_lxc_list_json
+    mock_process = MagicMock()
+    mock_process.stdout.read.return_value = mock_lxc_list_json
+    mock_process.wait.return_value = None
+    mock_process.returncode = 0
 
     with (
         patch("shutil.which", return_value="/usr/bin/lxc"),
-        patch("subprocess.run", return_value=mock_result),
+        patch("subprocess.Popen", return_value=mock_process),
         patch.dict("sys.modules", {"docker": None}),
     ):
         plugin = ContainersPlugin()

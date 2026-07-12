@@ -137,3 +137,7 @@ class RavenApp(App):
         self._sort_index = (self._sort_index + 1) % len(_SORT_CYCLE)
         self.notify(f"Sorting processes by: {_SORT_CYCLE[self._sort_index]}")
         self._tick()
+
+    def on_unmount(self) -> None:
+        """Teardown the collector on app exit."""
+        self._collector.close()

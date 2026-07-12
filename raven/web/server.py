@@ -22,10 +22,10 @@ from raven.core.collector import Collector
 _STATIC_DIR = Path(__file__).parent / "static"
 
 
-def create_app(config: RavenConfig | None = None) -> FastAPI:
+def create_app(config: RavenConfig | None = None, collector: Collector | None = None) -> FastAPI:
     """Create and configure the FastAPI web dashboard application."""
     cfg = config or load_config()
-    collector = Collector(cfg)
+    collector = collector or Collector(cfg)
     api_key = cfg.web.api_key
 
     warn_open_bind(cfg.web.host, api_key, "Web dashboard")

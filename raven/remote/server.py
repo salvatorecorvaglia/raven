@@ -17,10 +17,13 @@ from raven.core.api import create_base_app, warn_open_bind
 from raven.core.collector import Collector
 
 
-def create_remote_app(config: RavenConfig | None = None) -> FastAPI:
+def create_remote_app(
+    config: RavenConfig | None = None,
+    collector: Collector | None = None,
+) -> FastAPI:
     """Create the remote agent FastAPI application."""
     cfg = config or load_config()
-    collector = Collector(cfg)
+    collector = collector or Collector(cfg)
     api_key = cfg.remote.api_key
 
     warn_open_bind(cfg.remote.host, api_key, "Remote agent")

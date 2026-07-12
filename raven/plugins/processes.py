@@ -21,6 +21,7 @@ class ProcessesPlugin(MonitorPlugin):
 
         self._config = config or load_config()
         self._proc_cache: dict[int, psutil.Process] = {}
+        self._inaccessible_pids: set[int] = set()
         self._lock = threading.Lock()
 
     def is_available(self) -> bool:
@@ -37,6 +38,8 @@ class ProcessesPlugin(MonitorPlugin):
             for proc in psutil.process_iter():
                 pid = proc.pid
                 current_pids.add(pid)
+                if pid in self._inaccessible_pids:
+                    continue
                 try:
                     # Reuse cached process object or cache the new one
                     if pid in self._proc_cache:
@@ -52,12 +55,17 @@ class ProcessesPlugin(MonitorPlugin):
                         mem = p.memory_percent()
                     raw_procs.append((p, {"pid": pid, "cpu_percent": cpu, "memory_percent": mem}))
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    self._inaccessible_pids.add(pid)
+                    self._proc_cache.pop(pid, None)
                     continue
 
             # Clean up dead processes from the cache
             dead_pids = set(self._proc_cache.keys()) - current_pids
             for pid in dead_pids:
                 self._proc_cache.pop(pid, None)
+
+            # Clean up dead PIDs from inaccessible set
+            self._inaccessible_pids.intersection_update(current_pids)
 
         # Sort by CPU and memory usage to identify top active processes
         raw_procs.sort(

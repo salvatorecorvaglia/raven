@@ -13,6 +13,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="loading disconnected">
+    <script>
+        if (localStorage.getItem("theme") === "light") {
+            document.body.classList.add("light-theme");
+        }
+    </script>
     <!-- Header -->
     <header id="main-header">
         <div class="header-left">

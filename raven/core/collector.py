@@ -63,6 +63,10 @@ class Collector:
             pass
         self._shutdown()
 
+    async def close_async(self) -> None:
+        """Clean up asynchronous collector resources."""
+        self.close()
+
     def collect(self) -> SystemSnapshot:
         """Run all plugins in parallel and return a snapshot, using TTL cache if fresh."""
         now = time.time()

@@ -78,14 +78,13 @@ def get_enabled_plugins(config: RavenConfig) -> list[MonitorPlugin]:
             continue
 
         # Try to pass the configuration if the plugin constructor supports it
+        import inspect
         try:
-            instance: MonitorPlugin = cls(config=config)
-        except TypeError:
-            try:
+            sig = inspect.signature(cls)
+            if "config" in sig.parameters:
+                instance: MonitorPlugin = cls(config=config)
+            else:
                 instance: MonitorPlugin = cls()
-            except Exception:
-                log.exception("Plugin %s failed to instantiate — skipping", mod_name)
-                continue
         except Exception:
             log.exception("Plugin %s failed to instantiate — skipping", mod_name)
             continue

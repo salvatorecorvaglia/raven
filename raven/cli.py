@@ -223,7 +223,7 @@ def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
     if not remote_addr:
         from raven.core.runner import start_background_servers
 
-        start_background_servers(config)
+        start_background_servers(config, collector=collector)
 
     from raven.tui.app import RavenApp
 
