@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-12
+
+### Added
+
+- Added XOR obfuscation for API keys in storage (`sessionStorage` and `localStorage`) on the Web Dashboard to prevent clear text exposure.
+- Added dark/light theme persistence check in the Web Dashboard via inline script in `index.html` to prevent flash of unstyled content (FOUC).
+- Added `close_async()` in the `Collector` core module for clean asynchronous cleanup of collector resources.
+- Added TUI integration tests in `tests/test_tui.py` to verify proper mounting and presence of all panel widgets.
+
+### Changed
+
+- Optimized process monitoring (`ProcessesPlugin`) by caching and skipping inaccessible PIDs (such as zombie or permission-restricted processes) to minimize redundant, costly system calls.
+- Enhanced LXC container metric collection safety in `ContainersPlugin` by switching to `subprocess.Popen` and reading from stdout up to a hardcoded byte limit to avoid memory exhaustion from huge command outputs.
+- Refactored `plugin_manager.py` to check constructor signatures via `inspect.signature` rather than relying on catching `TypeError` when checking if a plugin accepts `config`.
+- Optimized resource usage by sharing a single collector instance between TUI/CLI and daemonized background servers (`start_background_servers`).
+- Improved precision in the CPU monitor plugin (`CpuPlugin`) by querying `psutil.cpu_percent` directly with `percpu=False` for the overall CPU percent calculation instead of computing the average of per-core percentages.
+- Simplified empty container layout messaging in `ContainerWidget` to "No containers detected".
+- Improved remote collector integration tests by using `fastapi.testclient.TestClient` and `httpx.ASGITransport` instead of spinning up actual TCP sockets and uvicorn servers, reducing test run times and eliminating flake.
+
+### Fixed
+
+- Added proper TUI teardown handling in `RavenApp.on_unmount` to close the collector and release resources on exit.
+
+
 ## [0.4.0] - 2026-07-05
 
 ### Added

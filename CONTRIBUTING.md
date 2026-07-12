@@ -91,6 +91,9 @@ This project uses PEP 484 type hints. If you add new parameters, functions, or c
 ### 🧵 Thread Safety
 If your custom plugin maintains internal state, caches query results, or tracks execution ticks between `collect()` cycles, ensure it is thread-safe. Metric collection may run concurrently across background threads or async tasks. Use locks (like `threading.Lock` or `threading.RLock`) to guard mutable shared state inside your plugin subclass.
 
+### 🔌 Custom Plugin Configuration
+When implementing a custom plugin under `raven/plugins/`, you can optionally accept the global configuration by defining an `__init__(self, config=None)` constructor. The plugin manager automatically uses `inspect.signature` to check the parameters and pass the `RavenConfig` object if requested.
+
 ### 🛡️ Security Guidelines
 - **API Authentication**: If you introduce new REST endpoints or WebSocket APIs, ensure they are protected by the API key security middleware.
 - **Timing-Attack Resistance**: Always use timing-safe comparison functions like `hmac.compare_digest` when validating API keys, tokens, or credentials.
@@ -109,6 +112,8 @@ We use [pytest](https://docs.pytest.org/) for automated testing.
   ```
 - Make sure to add tests for any new features or bug fixes you implement.
 - **Testing Authenticated Paths**: If you add or modify API/WebSocket endpoints, write tests verifying both authenticated (with valid key) and unauthenticated (missing or invalid key) flows.
+- **Mocking and Sockets in Tests**: When writing integration tests for remote metric collection or daemon servers, avoid spinning up actual TCP sockets and uvicorn servers to reduce test runtime, avoid port conflicts, and eliminate flake. Instead, use `fastapi.testclient.TestClient` for synchronous route tests and `httpx.ASGITransport` coupled with `httpx.AsyncClient` for asynchronous client-server integration testing.
+- **TUI Dashboard Testing**: For terminal dashboard TUI components, place integration tests in `tests/test_tui.py`. Use Textual's `app.run_test()` helper to verify widget mounting, layout structure, and panel presence without rendering a physical GUI.
 - **Cross-Platform Compatibility**: Raven targets **Linux, BSD, macOS, and Windows** across Python **3.11, 3.12, and 3.13**. Use `pytest.mark.skipif` to conditionally skip checks that depend on OS-specific commands or specs.
 
 ---
@@ -120,6 +125,7 @@ Here is a quick overview of where different modules reside in the [raven/](raven
 - `plugins/`: Extensible plugin system. To add a new metric collector, place it here (see `README.md` for a plugin example).
 - `tui/`: Textual-based terminal user interface components and styles (`.tcss`).
 - `web/`: FastAPI web dashboard backend and static assets (HTML/CSS/JS).
+- `remote/`: Server agent and client tools for remote metric synchronization.
 - `export/`: CLI and programmatic data exporters (JSON, CSV, plaintext).
 - `cli.py`: Command-line interface definition and parsing.
 

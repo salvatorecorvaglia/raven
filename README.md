@@ -8,7 +8,7 @@
 
 * **⚡ Gorgeous Dashboards**:
   * **TUI Dashboard**: Built with [Textual](https://textual.textualize.io/), offering smooth animations, color themes, real-time widgets, and flicker-free updates.
-  * **Web Dashboard**: An elegant web UI powered by FastAPI and Vanilla HTML/CSS/JS. Features premium loading shimmers, connection status toasts, and dynamic charts.
+  * **Web Dashboard**: An elegant web UI powered by FastAPI and Vanilla HTML/CSS/JS. Features premium loading shimmers, connection status toasts, light/dark theme persistence (to prevent FOUC), and dynamic charts.
 * **🐦‍⬛ Neofetch-style Fetch**: A quick terminal command to fetch system hardware specs, platform info, and resources.
 * **🔒 Remote Monitoring**: Run a secure agent on a remote server with timing-attack resistant API key authentication, and visualize its metrics locally.
 * **🔌 Extensible Plugins**: Easily write your own metrics collectors by inheriting from [MonitorPlugin](raven/plugins/base.py#L13).
@@ -168,6 +168,9 @@ class CustomMetricsPlugin(MonitorPlugin):
 ```
 
 3. Enable or customize your module inside your `raven.toml` under the `[modules]` header.
+
+> [!TIP]
+> **Configuration Support**: If your plugin requires custom settings or needs to read the global configuration, define an `__init__(self, config=None)` constructor. The plugin manager checks the constructor signature and automatically passes the `RavenConfig` instance to it.
 
 > [!TIP]
 > **Thread Safety**: If your plugin keeps state between collection cycles (e.g. counters or cached query data), use a thread lock (such as `threading.Lock`) to make sure it is safe to access from parallel collection threads.
