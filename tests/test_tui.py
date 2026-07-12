@@ -16,6 +16,7 @@ class MockMetricCollector:
     async def close_async(self):
         pass
 
+
 @pytest.mark.asyncio
 async def test_tui_app_mount(mock_config, dummy_snapshot):
     collector = MockMetricCollector(dummy_snapshot)

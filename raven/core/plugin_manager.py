@@ -79,6 +79,7 @@ def get_enabled_plugins(config: RavenConfig) -> list[MonitorPlugin]:
 
         # Try to pass the configuration if the plugin constructor supports it
         import inspect
+
         try:
             sig = inspect.signature(cls)
             if "config" in sig.parameters:
