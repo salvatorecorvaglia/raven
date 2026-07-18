@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-18
+
+### Added
+
+- Added concurrency groups to CI and release workflows to cancel in-progress runs automatically.
+- Added `Referrer-Policy: no-referrer` header in API responses via custom middleware and `<meta name="referrer" content="no-referrer">` in the Web Dashboard.
+- Added WebSocket authentication tests verifying connection lifecycle with and without a valid API key.
+- Added a dedicated concurrency test suite to verify thread-safe metric collection across multiple concurrent threads.
+
+### Changed
+
+- Replaced the hardcoded list of built-in plugins in `plugin_manager.py` with dynamic module discovery using `pkgutil.iter_modules`.
+- Optimized concurrent metric collection by using non-blocking lock acquisition in the central coordinate `Collector` to avoid thread accumulation when a call hangs.
+- Refactored `ProcessesPlugin` to fetch system PIDs using `psutil.pids()` and instantiate processes as needed, instead of iterating over `psutil.process_iter()`.
+- Improved container metric collection in `ContainersPlugin` to use `subprocess.communicate` with a 5-second timeout for safer process execution and resource cleanup.
+- Refined `CpuPlugin` overall CPU usage calculation to compute the average of per-core percentages, preventing inaccuracy on fast subsequent calls.
+- Fixed a potential `RuntimeError: Set changed size during iteration` in `raven/core/api.py` by copying the active WebSockets set prior to broadcasting.
+
 ## [0.5.0] - 2026-07-12
 
 ### Added

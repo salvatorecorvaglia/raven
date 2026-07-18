@@ -91,13 +91,16 @@ This project uses PEP 484 type hints. If you add new parameters, functions, or c
 ### 🧵 Thread Safety
 If your custom plugin maintains internal state, caches query results, or tracks execution ticks between `collect()` cycles, ensure it is thread-safe. Metric collection may run concurrently across background threads or async tasks. Use locks (like `threading.Lock` or `threading.RLock`) to guard mutable shared state inside your plugin subclass.
 
-### 🔌 Custom Plugin Configuration
-When implementing a custom plugin under `raven/plugins/`, you can optionally accept the global configuration by defining an `__init__(self, config=None)` constructor. The plugin manager automatically uses `inspect.signature` to check the parameters and pass the `RavenConfig` object if requested.
+### 🔌 Custom Plugin Configuration & Discovery
+Built-in and custom plugins are dynamically discovered from the `raven/plugins/` directory using `pkgutil.iter_modules`. Any new python file placed in `raven/plugins/` containing a subclass of `MonitorPlugin` is loaded automatically.
+
+When implementing a custom plugin, you can optionally accept the global configuration by defining an `__init__(self, config=None)` constructor. The plugin manager automatically uses `inspect.signature` to check the parameters and pass the `RavenConfig` object if requested.
 
 ### 🛡️ Security Guidelines
 - **API Authentication**: If you introduce new REST endpoints or WebSocket APIs, ensure they are protected by the API key security middleware.
 - **Timing-Attack Resistance**: Always use timing-safe comparison functions like `hmac.compare_digest` when validating API keys, tokens, or credentials.
 - **Obfuscated Browser Storage**: Never store clear-text API keys or sensitive credentials in client-side browser storage (e.g., `localStorage` or `sessionStorage`). Apply the existing pattern of XOR obfuscation with a secure salt.
+- **Referrer Privacy**: Ensure all API responses include the `Referrer-Policy: no-referrer` header, and static web pages contain the `<meta name="referrer" content="no-referrer">` directive to avoid inadvertent credential or path leakage.
 
 ---
 
@@ -114,6 +117,7 @@ We use [pytest](https://docs.pytest.org/) for automated testing.
 - **Testing Authenticated Paths**: If you add or modify API/WebSocket endpoints, write tests verifying both authenticated (with valid key) and unauthenticated (missing or invalid key) flows.
 - **Mocking and Sockets in Tests**: When writing integration tests for remote metric collection or daemon servers, avoid spinning up actual TCP sockets and uvicorn servers to reduce test runtime, avoid port conflicts, and eliminate flake. Instead, use `fastapi.testclient.TestClient` for synchronous route tests and `httpx.ASGITransport` coupled with `httpx.AsyncClient` for asynchronous client-server integration testing.
 - **TUI Dashboard Testing**: For terminal dashboard TUI components, place integration tests in `tests/test_tui.py`. Use Textual's `app.run_test()` helper to verify widget mounting, layout structure, and panel presence without rendering a physical GUI.
+- **Concurrency & Thread Safety**: Ensure the collector and plugins remain thread-safe by verifying behavior against the dedicated concurrency test suite (`tests/test_concurrency.py`). Plugins must not deadlock or raise exceptions when multiple collection cycles execute concurrently.
 - **Cross-Platform Compatibility**: Raven targets **Linux, BSD, macOS, and Windows** across Python **3.11, 3.12, and 3.13**. Use `pytest.mark.skipif` to conditionally skip checks that depend on OS-specific commands or specs.
 
 ---

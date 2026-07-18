@@ -167,7 +167,7 @@ class CustomMetricsPlugin(MonitorPlugin):
         }
 ```
 
-3. Enable or customize your module inside your `raven.toml` under the `[modules]` header.
+3. **Dynamic Discovery & Loading**: Built-in and custom plugins are dynamically discovered from the `raven/plugins/` directory using `pkgutil.iter_modules`. Your custom plugin will be loaded automatically if `is_available()` returns `True`. You do not need to register custom modules in `raven.toml` unless they require custom options/configurations passed to `__init__`.
 
 > [!TIP]
 > **Configuration Support**: If your plugin requires custom settings or needs to read the global configuration, define an `__init__(self, config=None)` constructor. The plugin manager checks the constructor signature and automatically passes the `RavenConfig` instance to it.
@@ -210,6 +210,7 @@ Raven supports timing-attack resistant API key authentication to secure web and 
 * **Obfuscated Browser Storage**: The Web Dashboard automatically obfuscates keys saved in `localStorage` and `sessionStorage` using a XOR cipher with a secure salt, preventing raw clear-text exposure.
 * **Clean URLs**: Query parameters containing keys (e.g., `?api_key=...`) are automatically read, stored in obfuscated format, and stripped from the browser's address bar to keep query logs clean.
 * **Open Bind Warnings**: Starting a server on `0.0.0.0` (all network interfaces) without a configured API key prints a console warning advising either key configuration or binding to `127.0.0.1`.
+* **Referrer Privacy**: To prevent credential and path leakage, all API responses include a `Referrer-Policy: no-referrer` header, and the Web Dashboard includes a `<meta name="referrer" content="no-referrer">` directive.
 
 If you discover a security vulnerability, please see our [Security Policy](SECURITY.md).
 
