@@ -63,3 +63,21 @@ def test_api_static_files(api_client):
     response = api_client.get("/static/style.css")
     assert response.status_code == 200
     assert "body" in response.text
+
+
+def test_websocket_auth_required_without_key(api_client):
+    from fastapi.websockets import WebSocketDisconnect
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with api_client.websocket_connect("/ws/live") as websocket:
+            websocket.send_text("wrong-key")
+            websocket.receive_json()
+    assert exc_info.value.code == 4001
+
+
+def test_websocket_auth_success(api_client):
+    with api_client.websocket_connect("/ws/live") as websocket:
+        websocket.send_text("secret-key")
+        data = websocket.receive_json()
+        assert "timestamp" in data
+        assert "cpu" in data

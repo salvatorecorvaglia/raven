@@ -76,9 +76,17 @@ class Collector:
         if self._last_snapshot and (now - self._last_collected_at < ttl):
             return self._last_snapshot
 
-        with self._cache_lock:
-            # Double check cache inside lock
-            if self._last_snapshot and (now - self._last_collected_at < ttl):
+        # Non-blocking lock acquire to prevent thread accumulation when a call hangs
+        acquired = self._cache_lock.acquire(blocking=False)
+        if not acquired:
+            if self._last_snapshot:
+                return self._last_snapshot
+            # If no snapshot is cached yet, wait for the lock
+            self._cache_lock.acquire()
+
+        try:
+            # Double check cache inside lock using the fresh current time
+            if self._last_snapshot and (time.time() - self._last_collected_at < ttl):
                 return self._last_snapshot
 
             results: dict[str, Any] = {}
@@ -93,6 +101,8 @@ class Collector:
             self._last_snapshot = self._assemble(results)
             self._last_collected_at = time.time()  # set to the exact completion time
             return self._last_snapshot
+        finally:
+            self._cache_lock.release()
 
     def collect_module(self, name: str) -> Any:
         """Collect metrics for a single module, checking TTL cache or querying the plugin."""

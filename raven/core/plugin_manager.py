@@ -8,24 +8,23 @@ from __future__ import annotations
 
 import importlib
 import logging
+import pkgutil
 
+import raven.plugins
 from raven.config import RavenConfig
 from raven.plugins.base import MonitorPlugin
 
 log = logging.getLogger(__name__)
 
-# Built-in plugin module names (relative to raven.plugins)
-_BUILTIN_PLUGINS = [
-    "cpu",
-    "memory",
-    "disk",
-    "network",
-    "processes",
-    "users",
-    "sensors",
-    "containers",
-    "system_info",
-]
+# Dynamically discover plugin module names (relative to raven.plugins)
+_BUILTIN_PLUGINS = sorted(
+    [
+        name
+        for _, name, ispkg in pkgutil.iter_modules(raven.plugins.__path__)
+        if not ispkg and name != "base"
+    ]
+)
+
 
 # Map plugin names → module config field names
 _NAME_TO_CONFIG = {

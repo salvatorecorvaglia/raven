@@ -56,6 +56,7 @@ def test_containers_plugin_lxc_only():
         }
     ]"""
     mock_process = MagicMock()
+    mock_process.communicate.return_value = (mock_lxc_list_json, "")
     mock_process.stdout.read.return_value = mock_lxc_list_json
     mock_process.wait.return_value = None
     mock_process.returncode = 0

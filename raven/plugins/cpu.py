@@ -38,7 +38,8 @@ class CpuPlugin(MonitorPlugin):
         cpu_stats = psutil.cpu_stats()
 
         percent_per_core = psutil.cpu_percent(interval=0, percpu=True)
-        percent_overall = psutil.cpu_percent(interval=0, percpu=False)
+        percent_overall = sum(percent_per_core) / len(percent_per_core) if percent_per_core else 0.0
+        percent_overall = round(percent_overall, 1)
 
         return CpuMetrics(
             percent_overall=percent_overall,

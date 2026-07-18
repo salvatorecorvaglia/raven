@@ -94,7 +94,7 @@ def create_base_app(
                     snap = await collector.collect_async()
                     payload = json.dumps(asdict(snap), default=str)
                     disconnected = []
-                    for ws in active_websockets:
+                    for ws in list(active_websockets):
                         try:
                             await ws.send_text(payload)
                         except Exception:
@@ -142,6 +142,13 @@ def create_base_app(
         allow_methods=["GET"],
         allow_headers=["X-API-Key"],
     )
+
+    # ── Referrer-Policy Middleware ──────────────────────────────────
+    @app.middleware("http")
+    async def _add_referrer_policy(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
 
     # ── API key middleware (timing-safe) ─────────────────────────────
     _skip = (skip_auth_paths or frozenset()) | frozenset({"/health"})

@@ -93,8 +93,9 @@ def test_network_plugin(mock_conns, mock_addrs, mock_io):
     assert metrics.connections_count == 3
 
 
-@patch("psutil.process_iter")
-def test_processes_plugin(mock_proc_iter):
+@patch("psutil.pids")
+@patch("psutil.Process")
+def test_processes_plugin(mock_process_cls, mock_pids):
     # Mocking two raw processes
     proc1 = MagicMock()
     proc1.pid = 1
@@ -110,7 +111,8 @@ def test_processes_plugin(mock_proc_iter):
         "memory_info": MagicMock(rss=5000),
     }
 
-    mock_proc_iter.return_value = [proc1]
+    mock_pids.return_value = [1]
+    mock_process_cls.return_value = proc1
 
     plugin = ProcessesPlugin()
     assert plugin.is_available() is True
@@ -176,8 +178,9 @@ def test_sensors_plugin(mock_bat, mock_fans, mock_temps):
     assert metrics.battery.secs_left is None
 
 
-@patch("psutil.process_iter")
-def test_processes_plugin_caching(mock_proc_iter):
+@patch("psutil.pids")
+@patch("psutil.Process")
+def test_processes_plugin_caching(mock_process_cls, mock_pids):
     proc = MagicMock()
     proc.pid = 42
     proc.cpu_percent.return_value = 25.0
@@ -192,7 +195,8 @@ def test_processes_plugin_caching(mock_proc_iter):
         "memory_info": MagicMock(rss=8000),
     }
 
-    mock_proc_iter.return_value = [proc]
+    mock_pids.return_value = [42]
+    mock_process_cls.return_value = proc
 
     plugin = ProcessesPlugin()
     assert len(plugin._proc_cache) == 0
@@ -212,7 +216,7 @@ def test_processes_plugin_caching(mock_proc_iter):
     assert len(plugin._proc_cache) == 1
 
     # Third collect: process disappears, cache should be cleared
-    mock_proc_iter.return_value = []
+    mock_pids.return_value = []
     metrics3 = plugin.collect()
     assert len(metrics3) == 0
     assert len(plugin._proc_cache) == 0
@@ -232,6 +236,6 @@ def test_processes_plugin_config_cache():
         mock_load.assert_called_once()
 
         # Call collect and make sure load_config is NOT called again
-        with patch("psutil.process_iter", return_value=[]):
+        with patch("psutil.pids", return_value=[]):
             plugin_auto.collect()
             mock_load.assert_called_once()

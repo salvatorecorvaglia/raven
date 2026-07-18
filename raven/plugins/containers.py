@@ -130,28 +130,26 @@ class ContainersPlugin(MonitorPlugin):
                 text=True,
             )
             try:
-                # Read at most _LXC_MAX_OUTPUT + 1 characters to prevent memory blowup (SEC-4)
-                stdout = process.stdout.read(_LXC_MAX_OUTPUT + 1)
+                # Read output and wait with a timeout of 5 seconds
+                stdout, stderr = process.communicate(timeout=5)
+                # Check maximum size of output
                 if len(stdout.encode("utf-8", errors="ignore")) > _LXC_MAX_OUTPUT:
-                    process.kill()
                     log.warning(
-                        "LXC output exceeded %d bytes, terminating process",
+                        "LXC output exceeded %d bytes",
                         _LXC_MAX_OUTPUT,
                     )
                     return containers
-
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    log.warning("LXC list command timed out")
-                    return containers
-
-                if process.returncode != 0:
-                    return containers
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                log.warning("LXC list command timed out")
+                return containers
             except Exception:
                 process.kill()
                 raise
+
+            if process.returncode != 0:
+                return containers
 
             data: list[dict[str, Any]] = json.loads(stdout)
             for entry in data:

@@ -35,9 +35,8 @@ class ProcessesPlugin(MonitorPlugin):
         current_pids = set()
 
         with self._lock:
-            for proc in psutil.process_iter():
-                pid = proc.pid
-                current_pids.add(pid)
+            current_pids = set(psutil.pids())
+            for pid in current_pids:
                 if pid in self._inaccessible_pids:
                     continue
                 try:
@@ -45,7 +44,7 @@ class ProcessesPlugin(MonitorPlugin):
                     if pid in self._proc_cache:
                         p = self._proc_cache[pid]
                     else:
-                        p = proc
+                        p = psutil.Process(pid)
                         self._proc_cache[pid] = p
 
                     # Compute CPU and memory percent. cpu_percent(interval=None) works properly
