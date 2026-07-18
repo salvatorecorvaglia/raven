@@ -44,7 +44,7 @@ jobs:
 
       - name: Generate Checksums
         run: |
-          sha256sum dist/*.tar.gz dist/*.whl > SHA256SUMS
+          (cd dist && sha256sum *.tar.gz *.whl) > SHA256SUMS
 
       - name: Extract Changelog Entry
         id: extract_changelog
@@ -112,6 +112,4 @@ jobs:
       # ── PyPI Publish ──────────────────────────────────────────────────
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          attestations: false
 
