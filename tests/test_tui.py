@@ -50,4 +50,3 @@ async def test_process_table_updates(mock_config, dummy_snapshot):
         assert table is not None
         table.update_data(snap, max_display=10, sort_by="cpu")
         assert table.row_count > 0
-

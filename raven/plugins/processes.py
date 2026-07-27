@@ -79,4 +79,3 @@ class ProcessesPlugin(MonitorPlugin):
                 )
             )
         return procs
-

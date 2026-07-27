@@ -227,4 +227,3 @@ def test_processes_plugin_config_cache():
         with patch("psutil.process_iter", return_value=[]):
             plugin_auto.collect()
             mock_load.assert_called_once()
-

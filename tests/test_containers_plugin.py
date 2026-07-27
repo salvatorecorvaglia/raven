@@ -96,4 +96,3 @@ def test_containers_plugin_docker_timeout():
         assert plugin.is_available() is False
         assert plugin._docker_ok is False
         mock_docker.from_env.assert_called_with(timeout=5)
-
