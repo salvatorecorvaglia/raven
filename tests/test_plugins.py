@@ -93,26 +93,22 @@ def test_network_plugin(mock_conns, mock_addrs, mock_io):
     assert metrics.connections_count == 3
 
 
-@patch("psutil.pids")
-@patch("psutil.Process")
-def test_processes_plugin(mock_process_cls, mock_pids):
-    # Mocking two raw processes
+@patch("psutil.process_iter")
+def test_processes_plugin(mock_process_iter):
     proc1 = MagicMock()
-    proc1.pid = 1
-    proc1.cpu_percent.return_value = 10.0
-    proc1.memory_percent.return_value = 5.0
-    proc1.info = {"pid": 1, "cpu_percent": 10.0, "memory_percent": 5.0}
-    proc1.as_dict.return_value = {
+    proc1.info = {
+        "pid": 1,
         "name": "proc1",
         "username": "user1",
+        "cpu_percent": 10.0,
+        "memory_percent": 5.0,
         "status": "running",
         "cmdline": ["proc1", "arg"],
         "num_threads": 2,
         "memory_info": MagicMock(rss=5000),
     }
 
-    mock_pids.return_value = [1]
-    mock_process_cls.return_value = proc1
+    mock_process_iter.return_value = [proc1]
 
     plugin = ProcessesPlugin()
     assert plugin.is_available() is True
@@ -178,48 +174,40 @@ def test_sensors_plugin(mock_bat, mock_fans, mock_temps):
     assert metrics.battery.secs_left is None
 
 
-@patch("psutil.pids")
-@patch("psutil.Process")
-def test_processes_plugin_caching(mock_process_cls, mock_pids):
-    proc = MagicMock()
-    proc.pid = 42
-    proc.cpu_percent.return_value = 25.0
-    proc.memory_percent.return_value = 12.0
-    proc.info = {"pid": 42, "cpu_percent": 25.0, "memory_percent": 12.0}
-    proc.as_dict.return_value = {
-        "name": "cached_proc",
+@patch("psutil.process_iter")
+def test_processes_plugin_sorting(mock_process_iter):
+    proc1 = MagicMock()
+    proc1.info = {
+        "pid": 1,
+        "name": "low_cpu",
         "username": "user",
+        "cpu_percent": 5.0,
+        "memory_percent": 2.0,
+        "status": "running",
+        "cmdline": ["run"],
+        "num_threads": 1,
+        "memory_info": MagicMock(rss=1000),
+    }
+    proc2 = MagicMock()
+    proc2.info = {
+        "pid": 2,
+        "name": "high_cpu",
+        "username": "user",
+        "cpu_percent": 50.0,
+        "memory_percent": 10.0,
         "status": "running",
         "cmdline": ["run"],
         "num_threads": 4,
         "memory_info": MagicMock(rss=8000),
     }
 
-    mock_pids.return_value = [42]
-    mock_process_cls.return_value = proc
+    mock_process_iter.return_value = [proc1, proc2]
 
     plugin = ProcessesPlugin()
-    assert len(plugin._proc_cache) == 0
-
-    # First collect: populates cache
-    metrics1 = plugin.collect()
-    assert len(metrics1) == 1
-    assert metrics1[0].pid == 42
-    assert len(plugin._proc_cache) == 1
-    assert plugin._proc_cache[42] is proc
-    proc.cpu_percent.assert_called_with(interval=None)
-
-    # Second collect: process continues using cache
-    metrics2 = plugin.collect()
-    assert len(metrics2) == 1
-    assert metrics2[0].pid == 42
-    assert len(plugin._proc_cache) == 1
-
-    # Third collect: process disappears, cache should be cleared
-    mock_pids.return_value = []
-    metrics3 = plugin.collect()
-    assert len(metrics3) == 0
-    assert len(plugin._proc_cache) == 0
+    metrics = plugin.collect()
+    assert len(metrics) == 2
+    assert metrics[0].pid == 2  # high CPU sorted first
+    assert metrics[1].pid == 1
 
 
 def test_processes_plugin_config_cache():
@@ -236,6 +224,7 @@ def test_processes_plugin_config_cache():
         mock_load.assert_called_once()
 
         # Call collect and make sure load_config is NOT called again
-        with patch("psutil.pids", return_value=[]):
+        with patch("psutil.process_iter", return_value=[]):
             plugin_auto.collect()
             mock_load.assert_called_once()
+

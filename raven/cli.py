@@ -154,19 +154,24 @@ def main(argv: list[str] | None = None) -> None:
 # ── Sub-command handlers ─────────────────────────────────────────────────────
 
 
-def _cmd_print(args: argparse.Namespace, config: RavenConfig) -> None:
+def _get_collector(args: argparse.Namespace, config: RavenConfig):
+    """Instantiate a local or remote collector based on CLI arguments."""
+    remote_addr = getattr(args, "remote", None)
+    if remote_addr:
+        from raven.remote.client import RemoteCollector
+
+        return RemoteCollector(remote_addr, api_key=config.remote.api_key)
+
     from raven.core.collector import Collector
 
+    return Collector(config)
+
+
+def _cmd_print(args: argparse.Namespace, config: RavenConfig) -> None:
     fmt = args.format or config.export.format
     modules = args.modules or None
 
-    if args.remote:
-        from raven.remote.client import RemoteCollector
-
-        collector = RemoteCollector(args.remote, api_key=config.remote.api_key)
-    else:
-        collector = Collector(config)
-
+    collector = _get_collector(args, config)
     snapshot = collector.collect()
 
     if fmt == "json":
@@ -186,7 +191,6 @@ def _cmd_print(args: argparse.Namespace, config: RavenConfig) -> None:
 
 
 def _cmd_web(args: argparse.Namespace, config: RavenConfig) -> None:
-
     from raven.web.server import create_app
 
     host = args.host if args.host is not None else config.web.host
@@ -198,7 +202,6 @@ def _cmd_web(args: argparse.Namespace, config: RavenConfig) -> None:
 
 
 def _cmd_serve(args: argparse.Namespace, config: RavenConfig) -> None:
-
     from raven.remote.server import create_remote_app
 
     host = args.host if args.host is not None else config.remote.host
@@ -210,17 +213,9 @@ def _cmd_serve(args: argparse.Namespace, config: RavenConfig) -> None:
 
 
 def _cmd_tui(args: argparse.Namespace, config: RavenConfig) -> None:
-    remote_addr = getattr(args, "remote", None)
-    if remote_addr:
-        from raven.remote.client import RemoteCollector
+    collector = _get_collector(args, config)
 
-        collector = RemoteCollector(remote_addr, api_key=config.remote.api_key)
-    else:
-        from raven.core.collector import Collector
-
-        collector = Collector(config)
-
-    if not remote_addr:
+    if not getattr(args, "remote", None):
         from raven.core.runner import start_background_servers
 
         start_background_servers(config, collector=collector)

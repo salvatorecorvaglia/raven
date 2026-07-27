@@ -80,3 +80,20 @@ def test_containers_plugin_lxc_only():
         assert metrics.containers[0].image == "ubuntu 22.04"
         assert metrics.containers[0].status == "running"
         assert metrics.containers[0].runtime == "lxc"
+
+
+def test_containers_plugin_docker_timeout():
+    mock_docker = MagicMock()
+    mock_client = MagicMock()
+    mock_client.ping.side_effect = Exception("Connection timed out")
+    mock_docker.from_env.return_value = mock_client
+
+    with (
+        patch("shutil.which", return_value=None),
+        patch.dict("sys.modules", {"docker": mock_docker}),
+    ):
+        plugin = ContainersPlugin()
+        assert plugin.is_available() is False
+        assert plugin._docker_ok is False
+        mock_docker.from_env.assert_called_with(timeout=5)
+

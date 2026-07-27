@@ -52,8 +52,14 @@ class Collector:
         )
 
     def _shutdown(self) -> None:
-        """Shut down the thread pool on interpreter exit."""
-        self._executor.shutdown(wait=False)
+        """Shut down the thread pool gracefully on exit."""
+        try:
+            self._executor.shutdown(wait=True, cancel_futures=True)
+        except Exception:
+            try:
+                self._executor.shutdown(wait=False)
+            except Exception:
+                pass
 
     def close(self) -> None:
         """Explicitly shut down the executor and unregister from atexit to prevent leaks."""

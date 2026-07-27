@@ -31,10 +31,10 @@
         return String(str).replace(/[&<>"']/g, (c) => map[c]);
     }
 
-    // Encrypts/obfuscates the API key before storage to prevent clear text exposure in localStorage/sessionStorage.
-    function encryptKey(text) {
+    // Obfuscates/de-obfuscates stored API keys to prevent accidental plain-text exposure in storage.
+    function obfuscateKey(text) {
         if (!text) return "";
-        const salt = "raven_secure_obfuscation_salt";
+        const salt = "raven_obfuscation_salt";
         let result = "";
         for (let i = 0; i < text.length; i++) {
             result += String.fromCharCode(text.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
@@ -42,12 +42,11 @@
         return btoa(result);
     }
 
-    // Decrypts the stored API key. Falls back to returning the ciphertext directly if it's not base64 encoded.
-    function decryptKey(ciphertext) {
+    function deobfuscateKey(ciphertext) {
         if (!ciphertext) return "";
         try {
             const decoded = atob(ciphertext);
-            const salt = "raven_secure_obfuscation_salt";
+            const salt = "raven_obfuscation_salt";
             let result = "";
             for (let i = 0; i < decoded.length; i++) {
                 result += String.fromCharCode(decoded.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
@@ -57,6 +56,9 @@
             return ciphertext;
         }
     }
+
+    const encryptKey = obfuscateKey;
+    const decryptKey = deobfuscateKey;
 
     function humanBytes(bytes) {
         const units = ["B", "KB", "MB", "GB", "TB"];

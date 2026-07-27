@@ -73,7 +73,7 @@ class ContainersPlugin(MonitorPlugin):
             import docker  # noqa: F401
 
             if self._docker_client is None:
-                self._docker_client = docker.from_env()
+                self._docker_client = docker.from_env(timeout=5)
             self._docker_client.ping()
             return True
         except Exception:
@@ -88,7 +88,7 @@ class ContainersPlugin(MonitorPlugin):
             if self._docker_client is None:
                 import docker
 
-                self._docker_client = docker.from_env()
+                self._docker_client = docker.from_env(timeout=5)
 
             for c in self._docker_client.containers.list(all=True):
                 # Retrieve the image name from attributes to avoid lazy-loading c.image API call

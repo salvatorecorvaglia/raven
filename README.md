@@ -1,6 +1,8 @@
 # Raven 🐦‍⬛
 
-**A system monitor that works on Linux, BSD, macOS, and Windows.**
+**Cross-platform system monitor for Linux, BSD, macOS, and Windows**
+
+**Raven** is a cross-platform, open-source system monitor written in Python that works on Linux, BSD, macOS, and Windows.
 
 ---
 
