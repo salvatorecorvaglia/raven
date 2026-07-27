@@ -25,7 +25,7 @@ Raven uses [uv](https://github.com/astral-sh/uv) to manage python dependencies, 
 
 2. **Sync the workspace dependencies and virtual environment**:
    ```bash
-   uv sync --all-extras --dev --frozen
+   uv sync --all-extras --dev
    ```
    This command automatically creates a virtual environment `.venv` and installs all dependencies, including development tools (`pytest`, `ruff`, etc.).
 

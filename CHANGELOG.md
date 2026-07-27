@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-27
+
+### Added
+
+- Added unit tests for Docker daemon connection timeouts in `ContainersPlugin`.
+- Added unit test coverage for TUI `ProcessTable` widget data updates.
+
+### Changed
+
+- Simplified process monitoring in `ProcessesPlugin` by utilizing `psutil.process_iter()` with pre-fetched field attributes and removing manual state/PID caching.
+- Configured a 5-second connection timeout (`timeout=5`) when initializing `docker.from_env()` in `ContainersPlugin` to prevent hanging on unresponsive Docker daemons.
+- Refactored Web Dashboard API key obfuscation helper functions (`obfuscateKey` / `deobfuscateKey`) in `app.js`.
+- Refactored and streamlined contribution guidelines, setup steps, and project documentation across `CONTRIBUTING.md` and `README.md`.
+
+### Fixed
+
+- Cleaned up trailing whitespace across plugin implementations and test suites.
+
 ## [0.6.0] - 2026-07-18
 
 ### Added
