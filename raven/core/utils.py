@@ -28,23 +28,25 @@ def human_bytes_compact(n: int | float) -> str:
     return f"{n:.0f}PB"
 
 
-def color_for_percent(pct: float, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
-    """Return a colour name for a percentage value.
+def color_for_percent(pct: float | None, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
+    """Return a colour name or hex string for a percentage value.
 
     Parameters
     ----------
     pct:
-        The percentage (0–100).
+        The percentage (0–100) or None.
     thresholds:
-        ``(warn, crit)`` — below *warn* is green, below *crit* is yellow,
-        above is red.
+        ``(warn, crit)`` — below *warn* is cyan, below *crit* is amber,
+        above is red/coral.
     """
+    if pct is None:
+        pct = 0.0
     warn, crit = thresholds
     if pct < warn:
-        return "green"
+        return "#00d2ff"
     elif pct < crit:
-        return "yellow"
-    return "red"
+        return "#f59e0b"
+    return "#ef4444"
 
 
 def text_sparkline(history) -> str:
@@ -58,42 +60,50 @@ def text_sparkline(history) -> str:
     max_val = max(history) or 1
     spark = ""
     for v in history:
-        idx = int(v / max_val * (len(spark_chars) - 1))
+        val = v if v is not None else 0.0
+        idx = int(val / max_val * (len(spark_chars) - 1))
         idx = max(0, min(idx, len(spark_chars) - 1))
         spark += spark_chars[idx]
     return spark
 
 
 def render_bar(
-    pct: float,
+    pct: float | None,
     width: int = 20,
     style_color: str | None = None,
     bracketed: bool = False,
+    filled_char: str = "━",
+    unfilled_char: str = "─",
 ) -> rich.text.Text:
-    """Render a progress bar using Rich Text.
+    """Render a sleek progress bar using Rich Text.
 
     Parameters
     ----------
     pct:
-        The percentage (0-100).
+        The percentage (0-100) or None.
     width:
         The character width of the filled/unfilled portion of the bar.
     style_color:
         Explicit colour name, or None to determine based on percentage thresholds.
     bracketed:
         If True, wraps the bar with dim brackets '[ ]'.
+    filled_char:
+        Character used for filled portion (default '━').
+    unfilled_char:
+        Character used for empty portion (default '─').
     """
-    filled = int(width * pct / 100)
+    safe_pct = 0.0 if pct is None else pct
+    filled = int(width * safe_pct / 100)
     filled = max(0, min(filled, width))
-    color = style_color or color_for_percent(pct)
+    color = style_color or color_for_percent(safe_pct)
     t = rich.text.Text()
     if bracketed:
         t.append("[", style="dim")
-    t.append("█" * filled, style=color)
-    t.append("░" * (width - filled), style="dim")
+    t.append(filled_char * filled, style=color)
+    t.append(unfilled_char * (width - filled), style="dim")
     if bracketed:
         t.append("]", style="dim")
-    t.append(f" {pct:5.1f}%", style=f"bold {color}")
+    t.append(f" {safe_pct:5.1f}%", style=f"bold {color}")
     return t
 
 

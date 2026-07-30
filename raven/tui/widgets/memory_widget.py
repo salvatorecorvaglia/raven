@@ -46,9 +46,5 @@ class MemoryWidget(Static):
         # Available
         text.append(f"  Available: {human_bytes(mem.available)}\n", style="dim")
 
-        # Sparkline
-        spark = text_sparkline(self._history)
-        if spark:
-            text.append(f"  {spark}\n", style=color_for_percent(mem.percent))
 
         self.update(text)

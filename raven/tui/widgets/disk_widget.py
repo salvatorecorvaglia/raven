@@ -5,8 +5,7 @@ from __future__ import annotations
 from rich.text import Text
 from textual.widgets import Static
 
-from raven.core.models import SystemSnapshot
-from raven.core.utils import color_for_percent, human_bytes
+from raven.core.utils import color_for_percent, human_bytes, render_bar
 
 
 class DiskWidget(Static):
@@ -18,14 +17,9 @@ class DiskWidget(Static):
         text.append("  Disk\n", style="bold cyan")
 
         for dp in disk.partitions[:6]:
-            color = color_for_percent(dp.percent, thresholds=(60.0, 85.0))
-            filled = int(12 * dp.percent / 100)
-            bar = "█" * filled + "░" * (12 - filled)
-
             mount_truncated = dp.mountpoint[:14]
             text.append(f"  {mount_truncated:<14} ", style="")
-            text.append(bar, style=color)
-            text.append(f" {dp.percent:5.1f}%", style=f"bold {color}")
+            text.append_text(render_bar(dp.percent, width=12))
             text.append(f"  {human_bytes(dp.used)}/{human_bytes(dp.total)}\n", style="dim")
 
         # I/O

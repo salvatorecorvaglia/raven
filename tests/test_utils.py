@@ -32,10 +32,10 @@ def test_human_bytes_compact():
 
 
 def test_color_for_percent():
-    assert color_for_percent(10.0) == "green"
-    assert color_for_percent(55.0) == "yellow"
-    assert color_for_percent(85.0) == "red"
-    assert color_for_percent(50.0, thresholds=(60.0, 90.0)) == "green"
+    assert color_for_percent(10.0) == "#00d2ff"
+    assert color_for_percent(55.0) == "#f59e0b"
+    assert color_for_percent(85.0) == "#ef4444"
+    assert color_for_percent(50.0, thresholds=(60.0, 90.0)) == "#00d2ff"
 
 
 def test_text_sparkline():
@@ -53,8 +53,8 @@ def test_render_bar():
     bar = render_bar(50.0, width=10)
     assert isinstance(bar, Text)
     # 5 filled, 5 empty
-    assert bar.plain.startswith("█████░░░░░")
+    assert bar.plain.startswith("━━━━━─────")
 
     # Bracketed bar
     bracketed_bar = render_bar(50.0, width=10, bracketed=True)
-    assert bracketed_bar.plain.startswith("[█████░░░░░]")
+    assert bracketed_bar.plain.startswith("[━━━━━─────]")

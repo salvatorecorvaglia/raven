@@ -60,9 +60,5 @@ class CpuWidget(Static):
         if info_parts:
             text.append("  " + "  │  ".join(info_parts) + "\n", style="dim")
 
-        # Mini sparkline
-        spark = text_sparkline(self._history)
-        if spark:
-            text.append(f"  {spark}\n", style=color_for_percent(cpu.percent_overall))
 
         self.update(text)
