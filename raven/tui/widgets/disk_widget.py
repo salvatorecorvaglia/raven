@@ -5,7 +5,8 @@ from __future__ import annotations
 from rich.text import Text
 from textual.widgets import Static
 
-from raven.core.utils import color_for_percent, human_bytes, render_bar
+from raven.core.models import SystemSnapshot
+from raven.core.utils import human_bytes, render_bar
 
 
 class DiskWidget(Static):

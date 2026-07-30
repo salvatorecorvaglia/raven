@@ -8,7 +8,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import color_for_percent, render_bar, text_sparkline
+from raven.core.utils import render_bar
 
 
 class CpuWidget(Static):
@@ -59,6 +59,5 @@ class CpuWidget(Static):
             )
         if info_parts:
             text.append("  " + "  │  ".join(info_parts) + "\n", style="dim")
-
 
         self.update(text)

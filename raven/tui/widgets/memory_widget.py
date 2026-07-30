@@ -8,7 +8,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import color_for_percent, human_bytes, render_bar, text_sparkline
+from raven.core.utils import human_bytes, render_bar
 
 
 class MemoryWidget(Static):
@@ -45,6 +45,5 @@ class MemoryWidget(Static):
 
         # Available
         text.append(f"  Available: {human_bytes(mem.available)}\n", style="dim")
-
 
         self.update(text)

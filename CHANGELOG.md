@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added Changelog and Security policy section links to `README.md`.
+
+### Changed
+
+- Modernized progress bar rendering in `render_bar` using box-drawing characters (`━` / `─`) and added configurable `filled_char` and `unfilled_char` parameters.
+- Updated percentage threshold color palette in `color_for_percent` to modern hex values (`#00d2ff`, `#f59e0b`, `#ef4444`).
+- Refactored `DiskWidget` in the TUI to utilize `render_bar` for standardized progress bar rendering.
+- Streamlined `CpuWidget` and `MemoryWidget` TUI displays by removing redundant sparkline elements.
+- Enhanced robustness of `color_for_percent`, `text_sparkline`, and `render_bar` to safely handle `None` percentage and history values.
+
+### Fixed
+
+- Updated utility test assertions in `tests/test_utils.py` to match new box-drawing progress bar characters and hex color codes.
+
 ## [0.7.0] - 2026-07-27
 
 ### Added
