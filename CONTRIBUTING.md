@@ -1,8 +1,6 @@
 # Contributing to Raven 🐦‍⬛
 
-First off, thank you for taking the time to contribute to **Raven**! Contributions from the community help make this project better for everyone.
-
-Below is a set of guidelines and instructions to help you get started with contributing.
+Thank you for your interest in contributing to **Raven**! We welcome contributions, bug reports, feature requests, and security improvements from the community.
 
 ---
 
