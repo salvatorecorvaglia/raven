@@ -22,7 +22,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual environments & uv
 .venv/
 venv/
 env/
@@ -35,39 +35,19 @@ venv.bak/
 .venv-formula/
 .venv-poet/
 .python-version
+.uv/
+.uv-cache/
 
 # Environment variables & secrets
 .env
+.env.*
 .env.local
 .env.development
 .env.test
 .env.production
 .env.*.local
 *.env
-
-# IDEs and Editors
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-*.sublime-project
-*.sublime-workspace
-.project
-.pydevproject
-.settings/
-
-# OS-specific files
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
+!.env.example
 
 # Testing & Coverage
 .pytest_cache/
@@ -84,14 +64,44 @@ htmlcov/
 .pyre/
 .pytype/
 
+# Databases & Logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
 # Documentation
 site/
 
 # Project-specific / Raven
 raven_monitor.egg-info/
+!raven.example.toml
 
-# Linting
-.ruff_cache/
+# IDEs and Editors
+.idea/
+.vscode/
+.zed/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
 
 # AI Tools & Agents
 .openai/
@@ -112,4 +122,6 @@ claude-settings.json
 .codex/
 .cagent/
 .cursor/
+.windsurf/
+.cline/
 CLAUDE.md
