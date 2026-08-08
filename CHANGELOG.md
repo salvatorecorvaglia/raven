@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Vendorized Chart.js (`vendor/chart.umd.min.js`) in the Web Dashboard static assets to enable fully offline and air-gapped web monitoring without external CDN dependencies.
+- Added inline theme initialization script (`theme-init.js`) to the Web Dashboard to eliminate theme flashing during initial page load.
+- Added `mypy` static type checking and `pytest-cov` coverage reporting to `pyproject.toml` with an 80% minimum coverage threshold.
+- Added automated dependency security auditing using `pip-audit` and coverage artifact uploads to the GitHub Actions CI workflow.
+- Added comprehensive feature and regression test suites (`tests/test_features.py` and `tests/test_regressions.py`).
+
+### Changed
+
+- Enforced explicit `utf-8` encoding for all file I/O operations (config parsing, metric export files, web template loading) for consistent cross-platform behavior.
+- Unified plugin initialization across `plugin_manager.py` and `collector.py` and enabled lazy container metric querying in `ContainersPlugin` to prevent startup delay.
+- Configured recursive static asset inclusions (`static/**/*`) in `pyproject.toml` to ensure nested vendor assets are bundled in wheel distribution packages.
+- Restricted CI workflow `cancel-in-progress` to pull request events.
+
+### Fixed
+
+- Enhanced robustness of system monitoring plugins (`network`, `processes`, `sensors`, `users`) with generic exception handling and explicit attribute checks to prevent `AttributeError` or unhandled exceptions on non-standard OS environments.
+
 ## [1.0.0] - 2026-08-06
 
 ### Chore

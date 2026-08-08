@@ -9,7 +9,7 @@
 ## ✨ Features
 
 - 🖥 **Interactive TUI Dashboard**: A beautiful terminal dashboard powered by [Textual](https://github.com/Textualize/textual). Inspect CPU, memory, disk, network, active processes, users, sensors, and containers.
-- 🌐 **Modern Web Dashboard**: A real-time web interface powered by FastAPI and WebSockets. Includes light/dark mode persistence, secure API key authentication with XOR obfuscation for client-side storage, and a smooth user experience.
+- 🌐 **Modern Web Dashboard**: A real-time web interface powered by FastAPI and WebSockets. Features vendorized web assets for 100% offline/air-gapped operation, light/dark theme persistence, secure API key authentication with XOR obfuscation for client-side storage, and a smooth user experience.
 - 📡 **Remote Monitoring Agent**: Run Raven as a remote server agent (`serve` mode) and fetch metrics securely via `RemoteCollector` over HTTP/WebSockets from a centralized Raven instance.
 - 🚀 **Quick Summary (`fetch`)**: A quick, `neofetch`-style console summary of your system's hardware, OS, and current utilization.
 - 📊 **Structured Exports (`print`)**: Print snapshots of system metrics to stdout in **Text**, **CSV**, or **JSON** formats, ideal for scripting, integrations, or cron jobs.

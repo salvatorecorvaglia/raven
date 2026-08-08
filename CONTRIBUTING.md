@@ -41,7 +41,7 @@ To maintain code quality and consistency across the repository, we use **Ruff** 
 
 ### Quality Checks
 
-Before committing your changes, always run lint and format checks locally:
+Before committing your changes, always run lint, format, and type checks locally:
 
 ```bash
 # Run the linter
@@ -49,6 +49,9 @@ uv run ruff check
 
 # Run the format check
 uv run ruff format --check
+
+# Run static type checking
+uv run mypy
 ```
 
 To automatically fix import order and lint errors, and auto-format your code:
@@ -67,16 +70,17 @@ uv run ruff format
 
 We use **pytest** for testing. All new features and bug fixes should include corresponding tests.
 
-Run the test suite using `uv`:
+Run the test suite with coverage using `uv`:
 
 ```bash
-uv run pytest
+uv run pytest --cov
 ```
 
 Our test suite includes:
 - Unit tests for configuration, exporters, models, and utility functions.
 - Integration tests verifying remote client/server communication using FastAPI's test client.
 - UI/TUI tests validating Textual widgets and application lifecycle.
+- Feature and regression tests for edge cases and plugin robustness.
 
 ---
 
@@ -96,7 +100,8 @@ When you are ready to submit your changes, please follow these steps:
    ```bash
    uv run ruff check
    uv run ruff format --check
-   uv run pytest
+   uv run mypy
+   uv run pytest --cov
    ```
 5. **Commit your changes** with a clear and descriptive commit message.
 6. **Push your branch** to your fork and **open a Pull Request** against the `main` branch of the original repository.
