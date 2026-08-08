@@ -8,7 +8,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import render_bar
+from raven.core.utils import color_for_percent, render_bar, text_sparkline
 
 
 class CpuWidget(Static):
@@ -19,10 +19,8 @@ class CpuWidget(Static):
         self._history: deque[float] = deque(maxlen=60)
 
     def update_data(self, snap: SystemSnapshot) -> None:
-        if not hasattr(self.app, "_cpu_history"):
-            self.app._cpu_history = deque(maxlen=60)
-        self._history = self.app._cpu_history
-
+        # History lives on the widget: it persists for the widget's lifetime,
+        # which is the app's lifetime, without monkey-patching the App object.
         cpu = snap.cpu
         self._history.append(cpu.percent_overall)
 
@@ -33,6 +31,13 @@ class CpuWidget(Static):
         text.append("  Overall  ")
         text.append_text(render_bar(cpu.percent_overall, width=15))
         text.append("\n")
+
+        # History sparkline
+        spark = text_sparkline(self._history)
+        if spark:
+            text.append("  History  ")
+            text.append(spark, style=color_for_percent(cpu.percent_overall))
+            text.append("\n")
 
         # Per-core bars (compact: 2 or 4 per line depending on core count)
         cores = cpu.percent_per_core

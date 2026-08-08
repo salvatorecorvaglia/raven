@@ -39,6 +39,14 @@ VALID_MODULES = frozenset(
     }
 )
 
+# Upper bound on concurrent WebSocket clients per server.  The broadcast loop
+# sends to every client serially, so an unbounded set lets one viewer degrade
+# the stream for all of them.
+MAX_WEBSOCKET_CLIENTS = 64
+
+# Per-client send timeout, so a stalled socket cannot block the broadcast loop.
+_WS_SEND_TIMEOUT = 5.0
+
 
 def warn_open_bind(host: str, api_key: str, service_name: str) -> None:
     """Log a security warning if binding to all interfaces with no auth."""
@@ -56,6 +64,15 @@ def warn_open_bind(host: str, api_key: str, service_name: str) -> None:
         )
 
 
+def keys_match(candidate: str, expected: str) -> bool:
+    """Constant-time API key comparison that tolerates non-ASCII keys.
+
+    ``hmac.compare_digest`` raises ``TypeError`` when given ``str`` arguments
+    containing non-ASCII characters, so both sides are encoded to UTF-8 first.
+    """
+    return hmac.compare_digest(candidate.encode("utf-8"), expected.encode("utf-8"))
+
+
 def create_base_app(
     *,
     config: RavenConfig,
@@ -64,6 +81,7 @@ def create_base_app(
     description: str,
     api_key: str = "",
     skip_auth_paths: frozenset[str] | None = None,
+    owns_collector: bool = True,
 ) -> FastAPI:
     """Create a FastAPI app with shared monitoring endpoints.
 
@@ -80,11 +98,26 @@ def create_base_app(
     api_key:
         API key for authentication (empty = no auth).
     skip_auth_paths:
-        URL path prefixes to skip auth for (e.g. static files).
+        Exact URL paths, or path prefixes whose children (``prefix + "/"``)
+        are also exempt, to skip auth for (e.g. static files).
+    owns_collector:
+        Whether this app is responsible for the collector's lifecycle.  Must
+        be ``False`` when the collector is shared with another consumer (e.g.
+        the TUI running a background web server), otherwise app shutdown
+        would tear down a collector still in use.
     """
     from raven import __version__
 
     active_websockets: set[WebSocket] = set()
+
+    def _active_modules() -> frozenset[str]:
+        """Modules this collector actually monitors.
+
+        Collectors that don't advertise the set (e.g. ``RemoteCollector``,
+        which proxies whatever the upstream agent reports) are assumed to
+        serve every module.
+        """
+        return getattr(collector, "active_modules", VALID_MODULES)
 
     async def broadcast_snapshots():
         log.info("Starting background WebSocket broadcast loop")
@@ -96,11 +129,18 @@ def create_base_app(
                     disconnected = []
                     for ws in list(active_websockets):
                         try:
-                            await ws.send_text(payload)
+                            await asyncio.wait_for(ws.send_text(payload), _WS_SEND_TIMEOUT)
+                        except TimeoutError:
+                            log.warning("Dropping WebSocket client — send timed out")
+                            disconnected.append(ws)
                         except Exception:
                             disconnected.append(ws)
                     for ws in disconnected:
                         active_websockets.discard(ws)
+                        try:
+                            await ws.close(code=1011, reason="Send timeout")
+                        except Exception:
+                            pass
                 await asyncio.sleep(config.general.refresh_interval)
         except asyncio.CancelledError:
             log.info("Background WebSocket broadcast loop cancelled")
@@ -120,9 +160,12 @@ def create_base_app(
                 await broadcast_task
             except asyncio.CancelledError:
                 pass
-        if hasattr(collector, "close_async"):
-            await collector.close_async()
-        collector.close()
+        # Only tear down a collector this app created — a shared collector
+        # (e.g. owned by the TUI) must outlive the server.
+        if owns_collector:
+            if hasattr(collector, "close_async"):
+                await collector.close_async()
+            collector.close()
 
     app = FastAPI(
         title=title,
@@ -143,11 +186,27 @@ def create_base_app(
         allow_headers=["X-API-Key"],
     )
 
-    # ── Referrer-Policy Middleware ──────────────────────────────────
+    # ── Security headers ────────────────────────────────────────────
+    # The dashboard ships all of its own assets (Chart.js is vendored, fonts
+    # are system stacks), so the CSP can forbid every external origin.
+    # connect-src keeps ws:/wss: for the live stream.
     @app.middleware("http")
-    async def _add_referrer_policy(request: Request, call_next):
+    async def _add_security_headers(request: Request, call_next):
         response = await call_next(request)
-        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self'; "
+            "img-src 'self' data:; "
+            "connect-src 'self' ws: wss:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'none'; "
+            "form-action 'none'",
+        )
         return response
 
     # ── API key middleware (timing-safe) ─────────────────────────────
@@ -168,7 +227,7 @@ def create_base_app(
             key = request.headers.get("X-API-Key")
             if not key:
                 return JSONResponse(status_code=401, content={"detail": "Missing API key"})
-            if not hmac.compare_digest(key, api_key):
+            if not keys_match(key, api_key):
                 return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
             return await call_next(request)
 
@@ -185,6 +244,11 @@ def create_base_app(
             raise HTTPException(
                 status_code=404,
                 detail=f"Unknown module '{module}'. Valid: {sorted(VALID_MODULES)}",
+            )
+        if module not in _active_modules():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Module '{module}' is not enabled on this agent",
             )
         result = await collector.collect_module_async(module)
         if result is None:
@@ -211,9 +275,17 @@ def create_base_app(
                 except TimeoutError:
                     await websocket.close(code=4001, reason="Auth timeout")
                     return
-                if not hmac.compare_digest(auth_msg, api_key):
+                if not keys_match(auth_msg, api_key):
                     await websocket.close(code=4001, reason="Invalid API key")
                     return
+
+            if len(active_websockets) >= MAX_WEBSOCKET_CLIENTS:
+                log.warning(
+                    "Rejecting WebSocket client — %d client limit reached",
+                    MAX_WEBSOCKET_CLIENTS,
+                )
+                await websocket.close(code=1013, reason="Too many clients")
+                return
 
             active_websockets.add(websocket)
             initial_snap = await collector.collect_async()
@@ -234,6 +306,17 @@ def create_base_app(
     # ── Health check ─────────────────────────────────────────────────
     @app.get("/health")
     async def health():
-        return {"status": "ok", "agent": "raven", "version": __version__}
+        return {
+            "status": "ok",
+            "agent": "raven",
+            "version": __version__,
+            # Lets clients render "not monitored" instead of a misleading 0.
+            "active_modules": sorted(_active_modules()),
+            # Server-side default; the browser's saved preference wins.
+            "theme": config.general.theme,
+            # So the dashboard applies the same process limit as the TUI and
+            # `raven print` rather than a hardcoded one.
+            "max_display": config.processes.max_display,
+        }
 
     return app

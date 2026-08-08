@@ -36,6 +36,10 @@ class Collector:
     def __init__(self, config: RavenConfig | None = None) -> None:
         self.config = config or load_config()
         self.plugins = get_enabled_plugins(self.config)
+        # Snapshot fields backed by a live plugin.  Anything absent here is
+        # reported as "not monitored" rather than as a default-zero metric,
+        # so a disabled module cannot masquerade as an idle one.
+        self.active_modules: frozenset[str] = frozenset(p.name for p in self.plugins)
         # Instance-level executor — properly cleaned up on shutdown
         self._executor = ThreadPoolExecutor(
             max_workers=min(len(self.plugins), 8) or 1,
@@ -104,14 +108,21 @@ class Collector:
                 except Exception:
                     log.exception("Plugin %s failed during collection", plugin.name)
 
-            self._last_snapshot = self._assemble(results)
+            self._last_snapshot = self._assemble(results, self._process_count(results))
             self._last_collected_at = time.time()  # set to the exact completion time
             return self._last_snapshot
         finally:
             self._cache_lock.release()
 
     def collect_module(self, name: str) -> Any:
-        """Collect metrics for a single module, checking TTL cache or querying the plugin."""
+        """Collect metrics for a single module, checking TTL cache or querying the plugin.
+
+        Returns ``None`` for modules with no active plugin, so callers can tell
+        "not monitored" apart from a genuine all-zero reading.
+        """
+        if name not in self.active_modules:
+            return None
+
         now = time.time()
         ttl = max(0.5, self.config.general.refresh_interval / 2.0)
 
@@ -137,12 +148,24 @@ class Collector:
 
     # ── private ──────────────────────────────────────────────────────────
 
+    def _process_count(self, results: dict[str, Any]) -> int:
+        """Total processes on the host, before display truncation.
+
+        The processes plugin truncates its return value, so its length would
+        understate the real count.
+        """
+        procs = results.get("processes") or []
+        for plugin in self.plugins:
+            if plugin.name == "processes":
+                return getattr(plugin, "total_count", len(procs))
+        return len(procs)
+
     @staticmethod
-    def _assemble(results: dict[str, Any]) -> SystemSnapshot:
+    def _assemble(results: dict[str, Any], process_count: int = 0) -> SystemSnapshot:
         """Map plugin results to the ``SystemSnapshot`` fields.
 
-        Note: processes are NOT sorted here — consumers (TUI, web, exporters)
-        apply their own sort based on the user's ``config.processes.sort_by``.
+        Processes arrive pre-sorted by ``config.processes.sort_by`` (the plugin
+        must sort before truncating); consumers may re-sort the returned slice.
         """
         procs = results.get("processes", [])
         if not isinstance(procs, list):
@@ -150,6 +173,7 @@ class Collector:
 
         return SystemSnapshot(
             timestamp=time.time(),
+            process_count=process_count or len(procs),
             cpu=results.get("cpu", CpuMetrics()),
             memory=results.get("memory", MemoryMetrics()),
             disk=results.get("disk", DiskMetrics()),

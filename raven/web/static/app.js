@@ -8,6 +8,10 @@
     // ── Constants ───────────────────────────────────────────────────────
     const MAX_HISTORY = 60;
     const RECONNECT_DELAY = 3000;
+    const RECONNECT_MAX_DELAY = 30000;
+    // After this many failures the page stops retrying and says so, rather
+    // than hammering a server that is clearly gone.
+    const RECONNECT_MAX_ATTEMPTS = 10;
 
     // ── State ───────────────────────────────────────────────────────────
     let ws = null;
@@ -20,10 +24,41 @@
     let netRecvHistory = [];
     let prevNetSent = 0;
     let prevNetRecv = 0;
+    let prevNetTime = 0;
     let prevIfaceData = {};
     let lastSnapshot = null;
     let sortKey = "cpu_percent";
     let sortAsc = false;
+    // null until /health answers; then the set of modules this agent monitors.
+    let activeModules = null;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
+    let hadSuccessfulAuth = false;
+    // Overridden from /health with the agent's processes.max_display, so the
+    // dashboard, the TUI and `raven print` all show the same number of rows.
+    let maxDisplay = 40;
+
+    // Cards whose data comes from a single module, so a disabled module can be
+    // labelled "not monitored" rather than rendering a misleading zero.
+    const CARD_MODULES = {
+        "cpu-card": "cpu",
+        "memory-card": "memory",
+        "network-card": "network",
+        "disk-card": "disk",
+        "sensors-card": "sensors",
+        "users-card": "users",
+        "containers-card": "containers",
+        "process-card": "processes",
+    };
+
+    function applyModuleAvailability() {
+        if (!activeModules) return;
+        Object.entries(CARD_MODULES).forEach(([cardId, mod]) => {
+            const card = document.getElementById(cardId);
+            if (!card) return;
+            card.classList.toggle("module-disabled", !activeModules.includes(mod));
+        });
+    }
 
     // ── Utilities ───────────────────────────────────────────────────────
     function escapeHtml(str) {
@@ -31,7 +66,10 @@
         return String(str).replace(/[&<>"']/g, (c) => map[c]);
     }
 
-    // Obfuscates/de-obfuscates stored API keys to prevent accidental plain-text exposure in storage.
+    // NOT encryption. This is a light obfuscation so the key is not sitting in
+    // storage as readable plaintext; the salt ships in this file, so anyone
+    // with devtools or an XSS foothold can recover the key. The real controls
+    // are serving over HTTPS and keeping the key out of URLs.
     function obfuscateKey(text) {
         if (!text) return "";
         const salt = "raven_obfuscation_salt";
@@ -57,8 +95,27 @@
         }
     }
 
-    const encryptKey = obfuscateKey;
-    const decryptKey = deobfuscateKey;
+    // Session-only by default: the key dies with the tab unless the user
+    // explicitly opts into persisting it on this device.
+    function storeKey(key, persist) {
+        sessionStorage.setItem("raven_api_key", obfuscateKey(key));
+        if (persist) {
+            localStorage.setItem("raven_api_key", obfuscateKey(key));
+        } else {
+            localStorage.removeItem("raven_api_key");
+        }
+    }
+
+    function loadKey() {
+        return deobfuscateKey(
+            sessionStorage.getItem("raven_api_key") || localStorage.getItem("raven_api_key") || ""
+        );
+    }
+
+    function clearKey() {
+        sessionStorage.removeItem("raven_api_key");
+        localStorage.removeItem("raven_api_key");
+    }
 
     function humanBytes(bytes) {
         const units = ["B", "KB", "MB", "GB", "TB"];
@@ -76,6 +133,13 @@
         return humanBytes(bytes) + "/s";
     }
 
+    // Bytes/second between two cumulative counter readings.
+    // Returns 0 when there is no usable baseline, or when the counter reset.
+    function computeRate(current, previous, dtSeconds) {
+        if (!(dtSeconds > 0.1)) return 0;
+        return Math.max(0, (current - previous) / dtSeconds);
+    }
+
     function classForPercent(pct) {
         if (pct < 50) return "metric-ok";
         if (pct < 80) return "metric-warn";
@@ -86,6 +150,18 @@
         if (pct < 50) return "bg-ok";
         if (pct < 80) return "bg-warn";
         return "bg-crit";
+    }
+
+    // Temperatures are °C, not percentages: prefer the sensor's own high /
+    // critical trip points and only fall back to a fixed 70/85 °C scale.
+    function classForTemp(celsius, high, critical) {
+        if (critical && celsius >= critical) return "metric-crit";
+        if (high && celsius >= high) return "metric-warn";
+        if (!high && !critical) {
+            if (celsius >= 85) return "metric-crit";
+            if (celsius >= 70) return "metric-warn";
+        }
+        return "metric-ok";
     }
 
     function formatUptime(seconds) {
@@ -346,16 +422,20 @@
             totalRecv += iface.bytes_recv || 0;
         });
 
-        const rateSent = Math.max(0, totalSent - prevNetSent);
-        const rateRecv = Math.max(0, totalRecv - prevNetRecv);
-        if (prevNetSent > 0) {
-            netSentHistory.push(rateSent);
-            netRecvHistory.push(rateRecv);
+        // Chart in bytes/second — the tooltip and axis both label it "/s",
+        // so the delta must be divided by the time actually elapsed rather
+        // than plotted as bytes-per-refresh-interval.
+        const nowMs = Date.now();
+        const dt = (nowMs - prevNetTime) / 1000.0;
+        if (prevNetTime > 0) {
+            netSentHistory.push(computeRate(totalSent, prevNetSent, dt));
+            netRecvHistory.push(computeRate(totalRecv, prevNetRecv, dt));
             if (netSentHistory.length > MAX_HISTORY) netSentHistory.shift();
             if (netRecvHistory.length > MAX_HISTORY) netRecvHistory.shift();
         }
         prevNetSent = totalSent;
         prevNetRecv = totalRecv;
+        prevNetTime = nowMs;
 
         // Update chart
         if (netChart && netSentHistory.length > 0) {
@@ -392,11 +472,9 @@
             const now = Date.now();
             if (prevIfaceData[name]) {
                 const prev = prevIfaceData[name];
-                const dt = (now - prev.time) / 1000.0;
-                if (dt > 0.1) {
-                    rateSent = Math.max(0, (iface.bytes_sent - prev.sent) / dt);
-                    rateRecv = Math.max(0, (iface.bytes_recv - prev.recv) / dt);
-                }
+                const ifaceDt = (now - prev.time) / 1000.0;
+                rateSent = computeRate(iface.bytes_sent, prev.sent, ifaceDt);
+                rateRecv = computeRate(iface.bytes_recv, prev.recv, ifaceDt);
             }
             prevIfaceData[name] = {
                 sent: iface.bytes_sent,
@@ -441,6 +519,7 @@
             const safePct = Number(p.percent) || 0;
 
             mountEl.textContent = p.mountpoint;
+            mountEl.title = p.mountpoint; // ellipsized in CSS; full path on hover
             fillEl.style.width = safePct + "%";
             fillEl.className = "partition-bar-fill " + bgClassForPercent(safePct);
             pctEl.textContent = safePct.toFixed(1) + "%";
@@ -479,7 +558,7 @@
 
                 labelEl.textContent = t.label;
                 valEl.textContent = t.current.toFixed(0) + "°C";
-                valEl.className = "sensor-value " + classForPercent(t.current);
+                valEl.className = "sensor-value " + classForTemp(t.current, t.high, t.critical);
             });
         } else {
             tempContainer.innerHTML = "";
@@ -531,7 +610,8 @@
 
             labelEl.textContent = bat.power_plugged ? "⚡ Plugged" : "🔋 Battery";
             valEl.textContent = (bat.percent || 0).toFixed(0) + "%";
-            valEl.className = "sensor-value " + (bat.percent > 20 ? "temp-ok" : "temp-crit");
+            // Same metric-* scale as every other readout (was temp-*).
+            valEl.className = "sensor-value " + (bat.percent > 20 ? "metric-ok" : "metric-crit");
         } else {
             batContainer.innerHTML = "";
         }
@@ -615,7 +695,9 @@
 
     function updateProcesses(snap) {
         const procs = snap.processes || [];
-        document.getElementById("proc-count").textContent = procs.length + " processes";
+        // process_count is the host total; procs is truncated for display.
+        const total = snap.process_count || procs.length;
+        document.getElementById("proc-count").textContent = total + " processes";
 
         // Sort
         const sorted = [...procs].sort((a, b) => {
@@ -643,8 +725,7 @@
         });
 
         const tbody = document.getElementById("process-tbody");
-        const displayLimit = 40;
-        const showProcs = sorted.slice(0, displayLimit);
+        const showProcs = sorted.slice(0, maxDisplay);
 
         if (tbody.children.length !== showProcs.length) {
             tbody.innerHTML = showProcs
@@ -719,15 +800,21 @@
     });
 
     // ── WebSocket ───────────────────────────────────────────────────────
-    function showAuthModal() {
+    function showAuthModal(message) {
         const modal = document.getElementById("auth-modal");
-        if (modal) {
-            modal.style.display = "flex";
-            const input = document.getElementById("auth-key-input");
-            if (input) {
-                input.value = "";
-                input.focus();
-            }
+        if (!modal) return;
+        modal.style.display = "flex";
+        // Distinguish "wrong key" from "server restarted" — previously both
+        // just re-showed a blank form.
+        const err = document.getElementById("auth-error");
+        if (err) {
+            err.textContent = message || "";
+            err.style.display = message ? "block" : "none";
+        }
+        const input = document.getElementById("auth-key-input");
+        if (input) {
+            input.value = "";
+            input.focus();
         }
     }
 
@@ -738,19 +825,39 @@
         }
     }
 
+    // Exponential backoff, so a downed server is not polled every 3 s forever.
+    function scheduleReconnect(badge) {
+        if (reconnectAttempts >= RECONNECT_MAX_ATTEMPTS) {
+            badge.textContent = "Disconnected";
+            badge.title = "Server unreachable. Reload the page to retry.";
+            return;
+        }
+        const delay = Math.min(RECONNECT_DELAY * 2 ** reconnectAttempts, RECONNECT_MAX_DELAY);
+        reconnectAttempts += 1;
+        badge.textContent = `Reconnecting in ${Math.round(delay / 1000)}s…`;
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connect, delay);
+    }
+
     function connect() {
+        // Never leave a pending retry racing against a manual reconnect.
+        clearTimeout(reconnectTimer);
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+            ws.onclose = null;
+            ws.close();
+        }
         const proto = location.protocol === "https:" ? "wss:" : "ws:";
         const params = new URLSearchParams(location.search);
         let apiKey = params.get("api_key");
 
         if (apiKey) {
-            sessionStorage.setItem("raven_api_key", encryptKey(apiKey));
-            localStorage.setItem("raven_api_key", encryptKey(apiKey));
+            // A key handed over in the URL is session-scoped by default.
+            storeKey(apiKey, false);
             params.delete("api_key");
             const newUrl = location.pathname + (params.toString() ? "?" + params.toString() : "");
             window.history.replaceState({}, document.title, newUrl);
         } else {
-            apiKey = decryptKey(sessionStorage.getItem("raven_api_key") || localStorage.getItem("raven_api_key") || "");
+            apiKey = loadKey();
         }
 
         const url = proto + "//" + location.host + "/ws/live";
@@ -762,15 +869,29 @@
 
             const badge = document.getElementById("status-badge");
             badge.textContent = "Live";
+            badge.title = "";
             badge.classList.add("connected");
             document.body.classList.remove("disconnected");
+            reconnectAttempts = 0;
+            hadSuccessfulAuth = true;
             hideAuthModal();
 
-            // Fetch version from health endpoint
+            // Fetch version, active modules and the server's default theme
             fetch("/health")
                 .then((r) => r.json())
                 .then((d) => {
                     document.getElementById("app-version").textContent = "v" + (d.version || "?");
+                    activeModules = d.active_modules || null;
+                    applyModuleAvailability();
+                    if (Number(d.max_display) > 0) {
+                        maxDisplay = Number(d.max_display);
+                        if (lastSnapshot) updateProcesses(lastSnapshot);
+                    }
+                    // Server default only applies when the user has no saved choice.
+                    if (!localStorage.getItem("theme") && d.theme === "light") {
+                        document.body.classList.add("light-theme");
+                        updateChartTheme();
+                    }
                 })
                 .catch(() => {});
         };
@@ -803,12 +924,18 @@
 
             if (event.code === 4001) {
                 badge.textContent = "Auth Required";
-                sessionStorage.removeItem("raven_api_key");
-                localStorage.removeItem("raven_api_key");
-                showAuthModal();
+                clearKey();
+                reconnectAttempts = 0;
+                showAuthModal(
+                    hadSuccessfulAuth
+                        ? "Connection rejected. The API key may have changed — please re-enter it."
+                        : "That API key was not accepted."
+                );
+            } else if (event.code === 1013) {
+                badge.textContent = "Server Busy";
+                scheduleReconnect(badge);
             } else {
-                badge.textContent = "Reconnecting…";
-                setTimeout(connect, RECONNECT_DELAY);
+                scheduleReconnect(badge);
             }
         };
 
@@ -869,8 +996,8 @@
             const input = document.getElementById("auth-key-input");
             if (input) {
                 const key = input.value.trim();
-                sessionStorage.setItem("raven_api_key", encryptKey(key));
-                localStorage.setItem("raven_api_key", encryptKey(key));
+                const remember = document.getElementById("auth-remember");
+                storeKey(key, Boolean(remember && remember.checked));
                 hideAuthModal();
                 connect();
             }

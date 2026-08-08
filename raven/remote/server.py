@@ -23,6 +23,9 @@ def create_remote_app(
 ) -> FastAPI:
     """Create the remote agent FastAPI application."""
     cfg = config or load_config()
+    # An injected collector is shared with another consumer (e.g. the TUI), so
+    # this app must not shut it down — see ``owns_collector``.
+    owns_collector = collector is None
     collector = collector or Collector(cfg)
     api_key = cfg.remote.api_key
 
@@ -34,4 +37,5 @@ def create_remote_app(
         title="Raven Remote Agent",
         description="Remote system monitoring agent",
         api_key=api_key,
+        owns_collector=owns_collector,
     )

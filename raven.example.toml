@@ -2,8 +2,8 @@
 # Copy to ./raven.toml or ~/.config/raven/raven.toml and customise.
 
 [general]
-refresh_interval = 2        # seconds between updates
-theme = "dark"              # "dark" (only theme for now)
+refresh_interval = 2        # seconds between updates (fractional allowed)
+theme = "dark"              # "dark" | "light"
 
 [modules]
 cpu = true
@@ -14,6 +14,7 @@ processes = true
 users = true
 sensors = true
 containers = true
+container_stats = false     # per-container CPU/memory (one Docker API call each)
 
 [web]
 enabled = false

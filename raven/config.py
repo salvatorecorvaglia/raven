@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 _DEFAULTS: dict[str, Any] = {
     "general": {
-        "refresh_interval": 2,
+        "refresh_interval": 2.0,
         "theme": "dark",
     },
     "modules": {
@@ -34,6 +34,7 @@ _DEFAULTS: dict[str, Any] = {
         "users": True,
         "sensors": True,
         "containers": True,
+        "container_stats": False,
     },
     "web": {
         "enabled": False,
@@ -62,7 +63,9 @@ _DEFAULTS: dict[str, Any] = {
 
 @dataclass
 class GeneralConfig:
-    refresh_interval: int = 2
+    # Float rather than int: the value is divided (cache TTL is interval/2) and
+    # fed to timers, and TOML users reasonably write ``2.5``.
+    refresh_interval: float = 2.0
     theme: str = "dark"
 
 
@@ -76,6 +79,9 @@ class ModulesConfig:
     users: bool = True
     sensors: bool = True
     containers: bool = True
+    # Per-container CPU/memory stats cost one blocking Docker API call per
+    # running container, so they are opt-in rather than on by default.
+    container_stats: bool = False
 
 
 @dataclass
@@ -129,6 +135,41 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return merged
 
 
+def _coerce(section: str, key: str, declared: Any, value: Any) -> Any:
+    """Check a TOML value against its declared field type.
+
+    ``from __future__ import annotations`` makes ``dataclasses.fields()``
+    report types as strings, so this matches on the annotation text.  Raises
+    ``ValueError`` naming the offending section and key, rather than letting a
+    wrong type surface later as an opaque ``TypeError`` during validation.
+    """
+    type_name = declared if isinstance(declared, str) else getattr(declared, "__name__", "")
+
+    # bool is a subclass of int, so it must be rejected explicitly for numbers.
+    checks: dict[str, tuple[type | tuple[type, ...], str]] = {
+        "bool": (bool, "a boolean"),
+        "str": (str, "a string"),
+        "int": (int, "an integer"),
+        "float": ((int, float), "a number"),
+    }
+    if type_name not in checks:
+        return value
+
+    expected, label = checks[type_name]
+    is_bool = isinstance(value, bool)
+    if type_name == "bool":
+        if not is_bool:
+            raise ValueError(f"{section}.{key} must be {label}, got {value!r}")
+        return value
+
+    if is_bool or not isinstance(value, expected):
+        raise ValueError(f"{section}.{key} must be {label}, got {value!r}")
+    if type_name == "float":
+        assert isinstance(value, int | float)
+        return float(value)
+    return value
+
+
 def _find_config_file(explicit_path: str | None = None) -> Path | None:
     """Locate the first existing config file in search order.
 
@@ -176,11 +217,11 @@ def _dict_to_config(data: dict[str, Any]) -> RavenConfig:
                 section_name,
             )
             raw = {}
-        valid_keys = {f.name for f in fields(cls)}
+        declared = {f.name: f.type for f in fields(cls)}
         filtered: dict[str, Any] = {}
         for k, v in raw.items():
-            if k in valid_keys:
-                filtered[k] = v
+            if k in declared:
+                filtered[k] = _coerce(section_name, k, declared[k], v)
             else:
                 log.warning(
                     "Unknown config key '%s' in [%s] — ignoring",

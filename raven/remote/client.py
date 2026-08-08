@@ -11,6 +11,9 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
+import logging
+
 import httpx
 
 from raven.core.models import (
@@ -32,6 +35,8 @@ from raven.core.models import (
     TemperatureReading,
     UserInfo,
 )
+
+log = logging.getLogger(__name__)
 
 
 class RemoteCollector:
@@ -63,16 +68,37 @@ class RemoteCollector:
         return self._async_client
 
     def close(self) -> None:
-        """Close the persistent synchronous HTTP client."""
+        """Close both HTTP clients.
+
+        Callers that only ever used ``collect_async`` still hold an open
+        ``AsyncClient``; closing just the sync client would leak its
+        connection pool.  Prefer ``close_async()`` from async code — this
+        drives ``aclose()`` on a throwaway loop, which is only possible when
+        no loop is already running on this thread.
+        """
         if self._client is not None:
             self._client.close()
             self._client = None
+        if self._async_client is not None:
+            client, self._async_client = self._async_client, None
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                asyncio.run(client.aclose())
+            else:
+                log.warning(
+                    "RemoteCollector.close() called from a running event loop; "
+                    "use close_async() to release the async client cleanly"
+                )
 
     async def close_async(self) -> None:
-        """Close the persistent asynchronous HTTP client."""
+        """Close both HTTP clients, awaiting a clean async shutdown."""
         if self._async_client is not None:
             await self._async_client.aclose()
             self._async_client = None
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
     def collect(self) -> SystemSnapshot:
         """Synchronous fetch of a remote snapshot using a persistent client."""
@@ -100,9 +126,15 @@ class RemoteCollector:
 
     @staticmethod
     def _build(cls: type, data: dict | None):
+        """Build a model from a dict, dropping keys the model doesn't declare.
+
+        Unknown keys are ignored so a newer agent can add fields without
+        breaking an older client.
+        """
         if not data:
             return cls()
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        known = cls.__dataclass_fields__  # type: ignore[attr-defined]  # always a dataclass
+        return cls(**{k: v for k, v in data.items() if k in known})
 
     @staticmethod
     def _parse(data: dict) -> SystemSnapshot:
@@ -173,6 +205,7 @@ class RemoteCollector:
             disk=disk,
             network=network,
             processes=procs,
+            process_count=data.get("process_count") or len(procs),
             users=users,
             sensors=sensors,
             containers=containers,

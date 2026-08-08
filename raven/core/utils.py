@@ -49,6 +49,29 @@ def color_for_percent(pct: float | None, thresholds: tuple[float, float] = (50.0
     return "#ef4444"
 
 
+def color_for_temp(
+    celsius: float,
+    high: float | None = None,
+    critical: float | None = None,
+) -> str:
+    """Return a colour for a temperature reading.
+
+    Temperatures are °C, not percentages, so the sensor's own trip points are
+    used when psutil reports them; the 70/85 °C fallback only applies when it
+    does not.  Mirrors ``classForTemp`` in the web dashboard.
+    """
+    if critical and celsius >= critical:
+        return "#ef4444"
+    if high and celsius >= high:
+        return "#f59e0b"
+    if not high and not critical:
+        if celsius >= 85:
+            return "#ef4444"
+        if celsius >= 70:
+            return "#f59e0b"
+    return "#00d2ff"
+
+
 def text_sparkline(history) -> str:
     """Render a text-based sparkline from a sequence of floats.
 

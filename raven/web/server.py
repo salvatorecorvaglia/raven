@@ -25,6 +25,9 @@ _STATIC_DIR = Path(__file__).parent / "static"
 def create_app(config: RavenConfig | None = None, collector: Collector | None = None) -> FastAPI:
     """Create and configure the FastAPI web dashboard application."""
     cfg = config or load_config()
+    # An injected collector is shared with another consumer (e.g. the TUI), so
+    # this app must not shut it down — see ``owns_collector``.
+    owns_collector = collector is None
     collector = collector or Collector(cfg)
     api_key = cfg.web.api_key
 
@@ -37,6 +40,7 @@ def create_app(config: RavenConfig | None = None, collector: Collector | None = 
         description="Cross-platform system monitoring REST API",
         api_key=api_key,
         skip_auth_paths=frozenset({"/", "/static"}),
+        owns_collector=owns_collector,
     )
 
     # ── Static files ─────────────────────────────────────────────────

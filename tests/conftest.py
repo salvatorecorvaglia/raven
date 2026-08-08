@@ -25,6 +25,36 @@ from raven.core.models import (
 )
 
 
+class MockMetricCollector:
+    """Minimal MetricCollector that replays a fixed snapshot."""
+
+    def __init__(self, snapshot):
+        self.snapshot = snapshot
+
+    def collect(self):
+        return self.snapshot
+
+    async def collect_async(self):
+        return self.snapshot
+
+    def close(self):
+        pass
+
+    async def close_async(self):
+        pass
+
+
+@pytest.fixture
+def mock_collector(dummy_snapshot):
+    return MockMetricCollector(dummy_snapshot)
+
+
+@pytest.fixture
+def make_collector():
+    """Build a MockMetricCollector around an arbitrary snapshot."""
+    return MockMetricCollector
+
+
 @pytest.fixture
 def mock_config():
     return RavenConfig(

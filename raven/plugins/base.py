@@ -7,7 +7,10 @@ and ``is_available()``.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from raven.config import RavenConfig
 
 
 class MonitorPlugin(ABC):
@@ -15,6 +18,14 @@ class MonitorPlugin(ABC):
 
     name: str = "unnamed"
     category: str = "general"
+
+    def __init__(self, config: RavenConfig | None = None) -> None:
+        """Every plugin accepts the config, whether or not it uses it.
+
+        A uniform signature lets ``get_enabled_plugins`` construct plugins
+        without inspecting each constructor to guess what it accepts.
+        """
+        self.config = config
 
     @abstractmethod
     def collect(self) -> Any:

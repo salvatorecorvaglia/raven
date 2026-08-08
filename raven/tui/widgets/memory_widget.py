@@ -8,7 +8,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import human_bytes, render_bar
+from raven.core.utils import color_for_percent, human_bytes, render_bar, text_sparkline
 
 
 class MemoryWidget(Static):
@@ -19,10 +19,7 @@ class MemoryWidget(Static):
         self._history: deque[float] = deque(maxlen=60)
 
     def update_data(self, snap: SystemSnapshot) -> None:
-        if not hasattr(self.app, "_memory_history"):
-            self.app._memory_history = deque(maxlen=60)
-        self._history = self.app._memory_history
-
+        # See CpuWidget: history is widget state, not App state.
         mem = snap.memory
         self._history.append(mem.percent)
 
@@ -42,6 +39,13 @@ class MemoryWidget(Static):
                 f"  {human_bytes(mem.swap_used)} / {human_bytes(mem.swap_total)}\n",
                 style="dim",
             )
+
+        # History sparkline
+        spark = text_sparkline(self._history)
+        if spark:
+            text.append("  Trend ")
+            text.append(spark, style=color_for_percent(mem.percent))
+            text.append("\n")
 
         # Available
         text.append(f"  Available: {human_bytes(mem.available)}\n", style="dim")

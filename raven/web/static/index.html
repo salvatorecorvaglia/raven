@@ -6,25 +6,22 @@
     <meta name="referrer" content="no-referrer">
     <meta name="description" content="Raven System Monitor — real-time cross-platform system monitoring dashboard">
     <title>🐦‍⬛ Raven — System Monitor</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- No external requests: Raven often runs on hosts with no internet
+         access, and a CDN would be able to execute script in this origin.
+         Chart.js is vendored; fonts fall back to the system UI stack. -->
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦‍⬛</text></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="/static/vendor/chart.umd.min.js"></script>
 </head>
 <body class="loading disconnected">
-    <script>
-        if (localStorage.getItem("theme") === "light") {
-            document.body.classList.add("light-theme");
-        }
-    </script>
+    <!-- Must stay first in <body>: applies the saved theme before paint. -->
+    <script src="/static/theme-init.js"></script>
     <!-- Header -->
     <header id="main-header">
         <div class="header-left">
             <span class="logo">🐦‍⬛</span>
             <h1>Raven</h1>
-            <span class="badge" id="status-badge">Connecting…</span>
+            <span class="badge" id="status-badge" role="status" aria-live="polite">Connecting…</span>
         </div>
         <div class="header-right">
             <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">🌓</button>
@@ -166,7 +163,7 @@
 
     <footer id="main-footer">
         <span>🐦‍⬛ Raven <span id="app-version"></span></span>
-        <span id="last-update">Last update: —</span>
+        <span id="last-update" aria-live="polite">Last update: —</span>
     </footer>
 
     <!-- Auth Modal -->
@@ -175,8 +172,13 @@
             <span class="modal-logo">🐦‍⬛</span>
             <h2>Authentication Required</h2>
             <p>Please enter the API key to connect to the Raven agent.</p>
+            <p id="auth-error" class="auth-error" role="alert" style="display: none;"></p>
             <form id="auth-form">
                 <input type="password" id="auth-key-input" placeholder="API Key" required autofocus>
+                <label class="auth-remember">
+                    <input type="checkbox" id="auth-remember">
+                    Remember on this device
+                </label>
                 <button type="submit" class="btn-primary">Connect</button>
             </form>
         </div>

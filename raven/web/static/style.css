@@ -16,8 +16,13 @@
     --accent-amber: #ffd93d;
     --accent-red: #ff6b6b;
     --accent-purple: #c084fc;
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    /* System stacks: no webfont requests, so the dashboard renders identically
+       on hosts with no internet access. Inter/JetBrains Mono are still used
+       when the viewer happens to have them installed locally. */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Mono',
+        Menlo, Consolas, 'Liberation Mono', monospace;
     --radius: 12px;
     --radius-sm: 8px;
     --glass-blur: 12px;
@@ -331,6 +336,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.6rem;
     padding: 0.3rem 0.5rem;
     background: rgba(255, 255, 255, 0.02);
     border-radius: var(--radius-sm);
@@ -352,7 +358,22 @@ body {
 .container-name {
     color: var(--text-primary);
     font-weight: 500;
-    min-width: 5rem;
+    /* Long values (temp-dir mountpoints, verbose sensor labels) must ellipsize
+       rather than overflow the card and collide with the value column.
+       min-width:0 is what actually permits a flex item to shrink and clip. */
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Full value stays available on hover via the title attribute. */
+.partition-usage,
+.partition-size,
+.iface-rate,
+.sensor-value {
+    flex: 0 0 auto;
 }
 
 .iface-rate {
@@ -402,9 +423,8 @@ body {
     font-weight: 600;
 }
 
-.temp-ok { color: var(--accent-green); }
-.temp-warn { color: var(--accent-amber); }
-.temp-crit { color: var(--accent-red); }
+/* Temperature/battery readouts use the shared .metric-* scale — see the
+   "Metric/Sensor States" block below. */
 
 .container-status {
     font-size: 0.7rem;
@@ -509,8 +529,14 @@ body {
 }
 
 /* ── Charts ─────────────────────────────────────────────────────────────── */
+/* The height is pinned deliberately. Chart.js runs with
+   `maintainAspectRatio: false`, so it sizes the canvas to its parent — and
+   with only a width constraint the canvas and its parent grow off each other
+   on every resize observation, reaching tens of thousands of pixels. */
 canvas {
     width: 100% !important;
+    height: 120px !important;
+    max-height: 120px;
     margin-bottom: 0.5rem;
 }
 
@@ -777,3 +803,63 @@ body.light-theme .btn-primary {
 }
 
 
+
+/* ── Disabled modules ──────────────────────────────────────────────────────
+   A module turned off in raven.toml must read as "not monitored" rather than
+   as a genuine zero. */
+.card.module-disabled .card-body {
+    opacity: 0.35;
+    filter: grayscale(1);
+    pointer-events: none;
+}
+
+.card.module-disabled .card-header::after {
+    content: "not monitored";
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: var(--text-dim);
+    border: 1px solid var(--text-dim);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    margin-left: auto;
+}
+
+.card.module-disabled .card-value {
+    visibility: hidden;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────*/
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ── Auth modal feedback ──────────────────────────────────────────────────*/
+.auth-error {
+    color: var(--accent-red);
+    font-size: 0.8rem;
+    margin: 0 0 0.75rem;
+    text-align: left;
+}
+
+.auth-remember {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin: 0.5rem 0 0.75rem;
+    cursor: pointer;
+}
+
+.auth-remember input {
+    accent-color: var(--accent-cyan, #00d2ff);
+    cursor: pointer;
+}

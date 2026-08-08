@@ -16,8 +16,8 @@ class SystemInfoPlugin(MonitorPlugin):
     name = "system_info"
     category = "system_info"
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config=None) -> None:
+        super().__init__(config)
         self._boot_time = psutil.boot_time()
         self._hostname = platform.node()
         self._os_name = platform.system()

@@ -77,9 +77,11 @@ class TextExporter(BaseExporter):
 
         # ── Processes ────────────────────────────────────────────────
         if show_all or "processes" in mods:
-            parts.append("  PID       CPU%   MEM%   Name")
+            procs = self.sorted_processes(snapshot)
+            total = snapshot.process_count or len(snapshot.processes)
+            parts.append(f"  PID       CPU%   MEM%   Name    ({len(procs)} of {total})")
             parts.append("  " + "─" * 50)
-            for p in snapshot.processes[:15]:
+            for p in procs:
                 parts.append(
                     f"  {p.pid:<9} {p.cpu_percent:5.1f}  {p.memory_percent:5.1f}   {p.name[:30]}"
                 )

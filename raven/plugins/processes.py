@@ -18,13 +18,24 @@ class ProcessesPlugin(MonitorPlugin):
     category = "processes"
 
     def __init__(self, config: RavenConfig | None = None) -> None:
-        super().__init__()
+        super().__init__(config)
         from raven.config import load_config
 
         self._config = config or load_config()
+        # Total processes seen on the last collect, before display truncation.
+        self.total_count = 0
 
     def is_available(self) -> bool:
         return True
+
+    # Snapshot field name → the ProcessInfo attribute to sort on, and whether
+    # larger values rank first.  Mirrors ProcessTable's sort options.
+    _SORT_KEYS: dict[str, tuple[str, bool]] = {
+        "cpu": ("cpu_percent", True),
+        "memory": ("memory_percent", True),
+        "pid": ("pid", False),
+        "name": ("name", False),
+    }
 
     def collect(self) -> list[ProcessInfo]:
         limit = max(100, self._config.processes.max_display * 2)
@@ -53,13 +64,24 @@ class ProcessesPlugin(MonitorPlugin):
         except Exception:
             log.debug("Process iteration encountered error", exc_info=True)
 
-        raw_procs.sort(
-            key=lambda item: (
-                item.get("cpu_percent") or 0.0,
-                item.get("memory_percent") or 0.0,
-            ),
-            reverse=True,
+        self.total_count = len(raw_procs)
+
+        # Sort by the *configured* key before truncating.  Sorting by CPU here
+        # unconditionally (as this once did) meant that with sort_by="memory" a
+        # RAM-heavy but idle process could be cut before any consumer saw it.
+        sort_attr, descending = self._SORT_KEYS.get(
+            self._config.processes.sort_by, ("cpu_percent", True)
         )
+        if sort_attr == "name":
+            raw_procs.sort(key=lambda item: (item.get("name") or "").lower())
+        else:
+            raw_procs.sort(
+                key=lambda item: (
+                    item.get(sort_attr) or 0,
+                    item.get("memory_percent") or 0.0,
+                ),
+                reverse=descending,
+            )
 
         procs: list[ProcessInfo] = []
         for info in raw_procs[:limit]:

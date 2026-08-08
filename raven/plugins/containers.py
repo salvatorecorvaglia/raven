@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import replace
 from typing import Any
 
 from raven.core.models import ContainerInfo, ContainerMetrics
@@ -18,13 +20,20 @@ log = logging.getLogger(__name__)
 # Maximum stdout size from LXC commands (10 MB) to prevent OOM
 _LXC_MAX_OUTPUT = 10 * 1024 * 1024
 
+# Overall budget for gathering per-container stats, kept well under the
+# collector's 10 s per-plugin future timeout.
+_STATS_DEADLINE = 6.0
+
 
 class ContainersPlugin(MonitorPlugin):
     name = "containers"
     category = "containers"
 
     def __init__(self, config=None) -> None:
-        super().__init__()
+        super().__init__(config)
+        self._stats_enabled = bool(
+            getattr(getattr(config, "modules", None), "container_stats", False)
+        )
         # Cache Docker/LXC availability to avoid repeated expensive checks
         self._docker_ok: bool | None = None
         self._lxc_ok: bool | None = None
@@ -34,9 +43,15 @@ class ContainersPlugin(MonitorPlugin):
         self._lock = threading.RLock()
 
     def is_available(self) -> bool:
-        with self._lock:
-            self._refresh_availability()
-            return bool(self._docker_ok or self._lxc_ok)
+        """Always available when the module is enabled.
+
+        Runtime presence of Docker/LXC is deliberately *not* decided here:
+        ``get_enabled_plugins`` calls this once at startup, so gating on it
+        would drop the plugin permanently if the Docker daemon happened to be
+        down at launch. Presence is re-checked on every ``collect()`` (behind
+        a 30 s cache) and reported via ``docker_available``/``lxc_available``.
+        """
+        return True
 
     def collect(self) -> ContainerMetrics:
         with self._lock:
@@ -84,6 +99,7 @@ class ContainersPlugin(MonitorPlugin):
 
     def _collect_docker(self) -> list[ContainerInfo]:
         containers: list[ContainerInfo] = []
+        running: list[Any] = []
         try:
             if self._docker_client is None:
                 import docker
@@ -113,9 +129,81 @@ class ContainersPlugin(MonitorPlugin):
                         runtime="docker",
                     )
                 )
+                running.append(c)
+
+            if self._stats_enabled and running:
+                containers = self._merge_stats(containers, running)
         except Exception:
             log.debug("Docker collection failed", exc_info=True)
         return containers
+
+    def _merge_stats(self, infos: list[ContainerInfo], running: list[Any]) -> list[ContainerInfo]:
+        """Attach CPU/memory stats to running containers.
+
+        ``stats(stream=False)`` blocks for ~1 s per container, so calls are
+        fanned out across a small pool with an overall deadline; anything that
+        doesn't answer in time keeps its ``None`` values.
+        """
+        by_id = {c.short_id: c for c in running if c.status == "running"}
+        if not by_id:
+            return infos
+
+        stats: dict[str, tuple[float | None, int | None, int | None]] = {}
+        with ThreadPoolExecutor(
+            max_workers=min(len(by_id), 8), thread_name_prefix="raven-docker-stats"
+        ) as pool:
+            futures = {pool.submit(self._container_stats, c): cid for cid, c in by_id.items()}
+            try:
+                for future in as_completed(futures, timeout=_STATS_DEADLINE):
+                    cid = futures[future]
+                    try:
+                        stats[cid] = future.result()
+                    except Exception:
+                        log.debug("Stats failed for container %s", cid, exc_info=True)
+            except TimeoutError:
+                log.debug("Docker stats deadline exceeded — reporting partial stats")
+
+        return [
+            replace(
+                info,
+                cpu_percent=stats[info.container_id][0],
+                memory_usage=stats[info.container_id][1],
+                memory_limit=stats[info.container_id][2],
+            )
+            if info.container_id in stats
+            else info
+            for info in infos
+        ]
+
+    @staticmethod
+    def _container_stats(container: Any) -> tuple[float | None, int | None, int | None]:
+        """Return ``(cpu_percent, memory_usage, memory_limit)`` for one container."""
+        raw = container.stats(stream=False)
+
+        cpu_percent: float | None = None
+        try:
+            cpu = raw["cpu_stats"]
+            precpu = raw["precpu_stats"]
+            cpu_delta = cpu["cpu_usage"]["total_usage"] - precpu["cpu_usage"]["total_usage"]
+            system_delta = cpu.get("system_cpu_usage", 0) - precpu.get("system_cpu_usage", 0)
+            if cpu_delta > 0 and system_delta > 0:
+                ncpu = cpu.get("online_cpus") or len(cpu["cpu_usage"].get("percpu_usage") or [1])
+                cpu_percent = round((cpu_delta / system_delta) * ncpu * 100.0, 1)
+        except (KeyError, TypeError, ZeroDivisionError):
+            pass
+
+        mem_usage: int | None = None
+        mem_limit: int | None = None
+        try:
+            mem = raw["memory_stats"]
+            # Subtract page cache so the figure matches `docker stats`.
+            cache = (mem.get("stats") or {}).get("cache", 0)
+            mem_usage = max(0, mem["usage"] - cache)
+            mem_limit = mem.get("limit")
+        except (KeyError, TypeError):
+            pass
+
+        return cpu_percent, mem_usage, mem_limit
 
     # ── LXC ──────────────────────────────────────────────────────────────
 

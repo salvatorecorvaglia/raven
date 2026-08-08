@@ -6,16 +6,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-
-
-def _temp_color(temp: float, high: float | None = None, crit: float | None = None) -> str:
-    if crit and temp >= crit:
-        return "red bold"
-    if high and temp >= high:
-        return "yellow"
-    if temp >= 80:
-        return "yellow"
-    return "green"
+from raven.core.utils import color_for_temp
 
 
 class SensorWidget(Static):
@@ -29,7 +20,7 @@ class SensorWidget(Static):
         if sensors.temperatures:
             text.append("  Temps\n", style="bold cyan")
             for t in sensors.temperatures[:6]:
-                color = _temp_color(t.current, t.high, t.critical)
+                color = color_for_temp(t.current, t.high, t.critical)
                 text.append(f"  {t.label:<18} ", style="")
                 text.append(f"{t.current:.0f}°C", style=color)
                 if t.high:

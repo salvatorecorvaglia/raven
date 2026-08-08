@@ -22,6 +22,19 @@ class CpuPlugin(MonitorPlugin):
     def is_available(self) -> bool:
         return True
 
+    @staticmethod
+    def _normalise_mhz(value: float | None) -> float | None:
+        """Return a frequency in MHz.
+
+        psutil reports GHz rather than MHz on some platforms (notably macOS on
+        Apple Silicon, where ``cpu_freq()`` returns ``current=4``), which would
+        otherwise be rendered as "4 MHz". No real CPU runs below 10 MHz, so a
+        value that small is unambiguously GHz.
+        """
+        if value is None or value <= 0:
+            return None
+        return value * 1000 if value < 10 else value
+
     def collect(self) -> CpuMetrics:
         freq = None
         if hasattr(psutil, "cpu_freq"):
@@ -30,6 +43,9 @@ class CpuPlugin(MonitorPlugin):
             except Exception:
                 pass
         # Load average is not available on Windows
+        load1: float | None
+        load5: float | None
+        load15: float | None
         try:
             load1, load5, load15 = os.getloadavg()
         except (OSError, AttributeError):
@@ -46,8 +62,8 @@ class CpuPlugin(MonitorPlugin):
             percent_per_core=percent_per_core,
             core_count_logical=psutil.cpu_count(logical=True) or 0,
             core_count_physical=psutil.cpu_count(logical=False),
-            frequency_current_mhz=freq.current if freq else None,
-            frequency_max_mhz=freq.max if freq else None,
+            frequency_current_mhz=self._normalise_mhz(freq.current) if freq else None,
+            frequency_max_mhz=self._normalise_mhz(freq.max) if freq else None,
             load_avg_1=load1,
             load_avg_5=load5,
             load_avg_15=load15,

@@ -79,7 +79,11 @@ class RavenApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        """Start the periodic refresh timer."""
+        """Apply the configured theme and start the periodic refresh timer."""
+        # dashboard.tcss uses design tokens ($surface, $accent, …), so setting
+        # the theme here repaints the whole dashboard.
+        self.theme = "textual-light" if self._config.general.theme == "light" else "textual-dark"
+
         interval = self._config.general.refresh_interval
         self.set_interval(interval, self._tick)
         # Do an initial collection immediately
@@ -87,7 +91,9 @@ class RavenApp(App):
 
     def _tick(self) -> None:
         """Collect metrics and push to all widgets."""
-        self.run_worker(self._async_tick, exclusive=True)
+        # Textual types run_worker's callable as returning Never; a plain
+        # `async def ... -> None` is a valid worker despite the annotation.
+        self.run_worker(self._async_tick, exclusive=True)  # type: ignore[arg-type]
 
     async def _async_tick(self) -> None:
         try:
@@ -138,6 +144,15 @@ class RavenApp(App):
         self.notify(f"Sorting processes by: {_SORT_CYCLE[self._sort_index]}")
         self._tick()
 
-    def on_unmount(self) -> None:
-        """Teardown the collector on app exit."""
-        self._collector.close()
+    async def on_unmount(self) -> None:
+        """Teardown the collector on app exit.
+
+        Async so that ``close_async()`` can be awaited: the TUI drives
+        ``collect_async()``, so for a ``RemoteCollector`` it is the *async*
+        HTTP client that holds open connections.
+        """
+        close_async = getattr(self._collector, "close_async", None)
+        if close_async is not None:
+            await close_async()
+        else:
+            self._collector.close()

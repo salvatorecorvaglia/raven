@@ -15,8 +15,8 @@ class NetworkPlugin(MonitorPlugin):
     name = "network"
     category = "network"
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config=None) -> None:
+        super().__init__(config)
         self._ticks = 0
         self._conn_count = 0
         self._lock = threading.Lock()

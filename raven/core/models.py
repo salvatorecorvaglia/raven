@@ -204,6 +204,9 @@ class SystemSnapshot:
     disk: DiskMetrics = field(default_factory=DiskMetrics)
     network: NetworkMetrics = field(default_factory=NetworkMetrics)
     processes: list[ProcessInfo] = field(default_factory=list)
+    # Total processes seen on the host.  ``processes`` is truncated for
+    # display, so its length must not be reported as the process count.
+    process_count: int = 0
     users: list[UserInfo] = field(default_factory=list)
     sensors: SensorMetrics = field(default_factory=SensorMetrics)
     containers: ContainerMetrics = field(default_factory=ContainerMetrics)

@@ -3,24 +3,9 @@ import pytest
 from raven.tui.app import RavenApp
 
 
-class MockMetricCollector:
-    def __init__(self, snapshot):
-        self.snapshot = snapshot
-
-    async def collect_async(self):
-        return self.snapshot
-
-    def close(self):
-        pass
-
-    async def close_async(self):
-        pass
-
-
 @pytest.mark.asyncio
-async def test_tui_app_mount(mock_config, dummy_snapshot):
-    collector = MockMetricCollector(dummy_snapshot)
-    app = RavenApp(collector=collector, config=mock_config)
+async def test_tui_app_mount(mock_config, mock_collector):
+    app = RavenApp(collector=mock_collector, config=mock_config)
     async with app.run_test():
         assert app.title == "🐦‍⬛ Raven System Monitor"
         # Verify that all panel widgets exist
@@ -34,7 +19,7 @@ async def test_tui_app_mount(mock_config, dummy_snapshot):
 
 
 @pytest.mark.asyncio
-async def test_process_table_updates(mock_config, dummy_snapshot):
+async def test_process_table_updates(mock_config, dummy_snapshot, make_collector):
     from raven.core.models import ProcessInfo, SystemSnapshot
     from raven.tui.widgets.process_table import ProcessTable
 
@@ -43,8 +28,7 @@ async def test_process_table_updates(mock_config, dummy_snapshot):
         processes=[ProcessInfo(pid=1, name="init", cpu_percent=1.0, memory_percent=0.5)],
     )
 
-    collector = MockMetricCollector(snap)
-    app = RavenApp(collector=collector, config=mock_config)
+    app = RavenApp(collector=make_collector(snap), config=mock_config)
     async with app.run_test():
         table = app.query_one("#process-panel", ProcessTable)
         assert table is not None

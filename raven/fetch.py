@@ -44,7 +44,10 @@ def run_fetch(config: RavenConfig | None = None) -> None:
     """Print a quick system summary to the console."""
     console = Console()
     collector = Collector(config)
-    snap = collector.collect()
+    try:
+        snap = collector.collect()
+    finally:
+        collector.close()  # release the thread pool; fetch is a one-shot command
 
     si = snap.system_info
     cpu = snap.cpu
@@ -145,8 +148,8 @@ def run_fetch(config: RavenConfig | None = None) -> None:
         user_names = list({u.name for u in snap.users})
         lines.append(f"[bold]Users[/bold]    {', '.join(user_names)}")
 
-    # Processes count
-    lines.append(f"[bold]Procs[/bold]    {len(snap.processes)}")
+    # Processes count — the host total, not the truncated display list
+    lines.append(f"[bold]Procs[/bold]    {snap.process_count or len(snap.processes)}")
 
     # ── Assemble side-by-side layout ─────────────────────────────────
     art_lines = _RAVEN_ART.strip().splitlines()

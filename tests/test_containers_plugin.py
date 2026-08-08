@@ -3,14 +3,39 @@ from unittest.mock import MagicMock, patch
 from raven.plugins.containers import ContainersPlugin
 
 
-def test_containers_plugin_unavailable():
+def test_containers_plugin_always_loadable():
+    """The plugin stays loaded even with no runtime present.
+
+    Availability is re-checked per collect() and reported through the metrics,
+    so a Docker daemon started after Raven does not require a restart.
+    """
     with patch("shutil.which", return_value=None), patch.dict("sys.modules", {"docker": None}):
         plugin = ContainersPlugin()
-        assert plugin.is_available() is False
+        assert plugin.is_available() is True
         metrics = plugin.collect()
         assert metrics.docker_available is False
         assert metrics.lxc_available is False
         assert metrics.containers == []
+
+
+def test_containers_plugin_detects_docker_started_later():
+    """A daemon that appears after startup is picked up without a restart."""
+    mock_docker = MagicMock()
+    mock_client = MagicMock()
+    mock_client.containers.list.return_value = []
+    mock_docker.from_env.return_value = mock_client
+
+    with patch("shutil.which", return_value=None), patch.dict("sys.modules", {"docker": None}):
+        plugin = ContainersPlugin()
+        assert plugin.collect().docker_available is False
+
+    # Docker comes up; expire the 30 s availability cache to force a re-check.
+    with (
+        patch("shutil.which", return_value=None),
+        patch.dict("sys.modules", {"docker": mock_docker}),
+    ):
+        plugin._last_check = 0.0
+        assert plugin.collect().docker_available is True
 
 
 def test_containers_plugin_docker_only():
@@ -30,11 +55,10 @@ def test_containers_plugin_docker_only():
         patch.dict("sys.modules", {"docker": mock_docker}),
     ):
         plugin = ContainersPlugin()
-        assert plugin.is_available() is True
+        metrics = plugin.collect()
         assert plugin._docker_ok is True
         assert plugin._lxc_ok is False
 
-        metrics = plugin.collect()
         assert metrics.docker_available is True
         assert metrics.lxc_available is False
         assert len(metrics.containers) == 1
@@ -67,11 +91,10 @@ def test_containers_plugin_lxc_only():
         patch.dict("sys.modules", {"docker": None}),
     ):
         plugin = ContainersPlugin()
-        assert plugin.is_available() is True
+        metrics = plugin.collect()
         assert plugin._docker_ok is False
         assert plugin._lxc_ok is True
 
-        metrics = plugin.collect()
         assert metrics.docker_available is False
         assert metrics.lxc_available is True
         assert len(metrics.containers) == 1
@@ -93,6 +116,7 @@ def test_containers_plugin_docker_timeout():
         patch.dict("sys.modules", {"docker": mock_docker}),
     ):
         plugin = ContainersPlugin()
-        assert plugin.is_available() is False
+        metrics = plugin.collect()
+        assert metrics.docker_available is False
         assert plugin._docker_ok is False
         mock_docker.from_env.assert_called_with(timeout=5)

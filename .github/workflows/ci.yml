@@ -39,6 +39,29 @@ jobs:
       - name: Run Ruff format check
         run: uv run ruff format --check
 
+      # The package ships py.typed, so its annotations are part of its API.
+      - name: Run mypy
+        run: uv run mypy
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Sync workspace
+        run: uv sync --all-extras --dev --frozen
+
+      - name: Audit dependencies for known vulnerabilities
+        run: uv run --with pip-audit pip-audit --strict
+
   test:
     name: Test (${{ matrix.os }} - Python ${{ matrix.python-version }})
     needs: lint
@@ -63,5 +86,12 @@ jobs:
         run: uv sync --all-extras --dev --frozen
 
       - name: Run test suite
-        run: uv run pytest
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-xml
+          path: coverage.xml
 
