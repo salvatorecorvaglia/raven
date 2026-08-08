@@ -54,7 +54,7 @@ class NetworkPlugin(MonitorPlugin):
             if self._ticks % 10 == 1 or self._ticks == 1:
                 try:
                     self._conn_count = len(psutil.net_connections(kind="inet"))
-                except (psutil.AccessDenied, OSError):
+                except Exception:
                     self._conn_count = 0
             conn_count = self._conn_count
 

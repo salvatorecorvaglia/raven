@@ -61,6 +61,10 @@ select = ["E", "F", "W", "I", "UP", "B"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.",
+    "ignore:.*starlette.testclient.*:DeprecationWarning",
+]
 
 [tool.mypy]
 python_version = "3.11"

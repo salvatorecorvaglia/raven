@@ -47,7 +47,7 @@ class SensorsPlugin(MonitorPlugin):
                             critical=entry.critical,
                         )
                     )
-        except (AttributeError, OSError):
+        except Exception:
             pass
         return readings
 
@@ -62,7 +62,7 @@ class SensorsPlugin(MonitorPlugin):
                 for entry in entries:
                     label = entry.label or group_name
                     readings.append(FanReading(label=label, current=entry.current))
-        except (AttributeError, OSError):
+        except Exception:
             pass
         return readings
 
@@ -73,8 +73,9 @@ class SensorsPlugin(MonitorPlugin):
             if bat is None:
                 return None
             unknown = getattr(psutil, "POWER_TIME_UNKNOWN", -1)
+            unlimited = getattr(psutil, "POWER_TIME_UNLIMITED", -2)
             secs_left = bat.secsleft
-            is_invalid = secs_left in (psutil.POWER_TIME_UNLIMITED, unknown)
+            is_invalid = secs_left in (unlimited, unknown)
             if is_invalid or (secs_left is not None and secs_left < 0):
                 secs_left = None
             return BatteryInfo(
@@ -82,5 +83,5 @@ class SensorsPlugin(MonitorPlugin):
                 power_plugged=bat.power_plugged,
                 secs_left=secs_left,
             )
-        except (AttributeError, OSError):
+        except Exception:
             return None

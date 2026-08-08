@@ -28,6 +28,7 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          cache-suffix: "lint"
           python-version: "3.12"
 
       - name: Sync workspace
@@ -54,6 +55,7 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          cache-suffix: "audit"
           python-version: "3.12"
 
       - name: Sync workspace
@@ -80,6 +82,7 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          cache-suffix: "${{ matrix.os }}-${{ matrix.python-version }}"
           python-version: ${{ matrix.python-version }}
 
       - name: Sync workspace

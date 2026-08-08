@@ -231,7 +231,7 @@ def test_invalid_config_value_exits_cleanly(tmp_path, capsys):
     from raven.cli import main
 
     cfg_file = tmp_path / "raven.toml"
-    cfg_file.write_text("[general]\nrefresh_interval = 0\n")
+    cfg_file.write_text("[general]\nrefresh_interval = 0\n", encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         main(["-c", str(cfg_file), "fetch"])
     assert exc.value.code == 2
@@ -242,7 +242,7 @@ def test_malformed_toml_exits_cleanly(tmp_path, capsys):
     from raven.cli import main
 
     cfg_file = tmp_path / "raven.toml"
-    cfg_file.write_text("[general\nthis is not toml")
+    cfg_file.write_text("[general\nthis is not toml", encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         main(["-c", str(cfg_file), "fetch"])
     assert exc.value.code == 2
@@ -271,7 +271,7 @@ def test_global_flags_accepted_after_subcommand(tmp_path):
     from raven.cli import _build_parser
 
     cfg_file = tmp_path / "raven.toml"
-    cfg_file.write_text("[general]\nrefresh_interval = 3\n")
+    cfg_file.write_text("[general]\nrefresh_interval = 3\n", encoding="utf-8")
     parser = _build_parser()
 
     after = parser.parse_args(["print", "-c", str(cfg_file)])

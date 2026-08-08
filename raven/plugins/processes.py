@@ -87,6 +87,7 @@ class ProcessesPlugin(MonitorPlugin):
         for info in raw_procs[:limit]:
             cmdline = info.get("cmdline") or []
             mem_info = info.get("memory_info")
+            cmd_str = " ".join(cmdline) if isinstance(cmdline, (list, tuple)) else str(cmdline)
             procs.append(
                 ProcessInfo(
                     pid=info.get("pid", 0) or 0,
@@ -95,9 +96,9 @@ class ProcessesPlugin(MonitorPlugin):
                     cpu_percent=round(info.get("cpu_percent", 0.0) or 0.0, 1),
                     memory_percent=round(info.get("memory_percent", 0.0) or 0.0, 1),
                     status=info.get("status") or "",
-                    cmdline=" ".join(cmdline) if cmdline else "",
+                    cmdline=cmd_str,
                     num_threads=info.get("num_threads", 0) or 0,
-                    memory_rss=mem_info.rss if mem_info else 0,
+                    memory_rss=getattr(mem_info, "rss", 0) if mem_info else 0,
                 )
             )
         return procs

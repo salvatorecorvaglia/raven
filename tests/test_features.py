@@ -129,7 +129,7 @@ def test_tui_stylesheet_uses_design_tokens():
     import re
     from pathlib import Path
 
-    css = (Path(__file__).parent.parent / "raven/tui/dashboard.tcss").read_text()
+    css = (Path(__file__).parent.parent / "raven/tui/dashboard.tcss").read_text(encoding="utf-8")
     assert not re.findall(r"#[0-9a-fA-F]{6}", css)
     assert "$surface" in css
 
@@ -150,8 +150,8 @@ def test_theme_init_runs_before_paint():
     from pathlib import Path
 
     static = Path(__file__).parent.parent / "raven/web/static"
-    html = (static / "index.html").read_text()
-    script = (static / "theme-init.js").read_text()
+    html = (static / "index.html").read_text(encoding="utf-8")
+    script = (static / "theme-init.js").read_text(encoding="utf-8")
 
     body_at = html.index("<body")
     assert html.index("theme-init.js") > body_at, "must be inside <body>"
@@ -178,7 +178,7 @@ def test_health_reports_max_display():
 def test_dashboard_has_no_hardcoded_process_limit():
     from pathlib import Path
 
-    js = (Path(__file__).parent.parent / "raven/web/static/app.js").read_text()
+    js = (Path(__file__).parent.parent / "raven/web/static/app.js").read_text(encoding="utf-8")
     assert "sorted.slice(0, maxDisplay)" in js
     assert "const displayLimit = 40" not in js
 
