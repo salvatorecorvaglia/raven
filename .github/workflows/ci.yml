@@ -62,7 +62,7 @@ jobs:
         run: uv sync --all-extras --dev --frozen
 
       - name: Audit dependencies for known vulnerabilities
-        run: uv run --with pip-audit pip-audit --strict
+        run: uv export --format requirements-txt --no-emit-project --all-extras --dev | uv run --with pip-audit pip-audit --strict -r /dev/stdin
 
   test:
     name: Test (${{ matrix.os }} - Python ${{ matrix.python-version }})
