@@ -46,7 +46,6 @@ jobs:
       - name: Run Ruff format check
         run: uv run ruff format --check
 
-      # The package ships py.typed, so its annotations are part of its API.
       - name: Run mypy
         run: uv run mypy
 
@@ -118,4 +117,3 @@ jobs:
         uses: actions/checkout@v6
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
-
