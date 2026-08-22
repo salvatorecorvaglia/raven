@@ -41,6 +41,10 @@ class ContainersPlugin(MonitorPlugin):
         self._cache_ttl: float = 30.0  # re-check every 30 seconds
         self._docker_client: Any = None
         self._lock = threading.RLock()
+        # Reused across collect() cycles instead of building a new pool every
+        # time container stats are gathered, which churned threads on every
+        # refresh interval.
+        self._stats_executor: ThreadPoolExecutor | None = None
 
     def is_available(self) -> bool:
         """Always available when the module is enabled.
@@ -52,6 +56,12 @@ class ContainersPlugin(MonitorPlugin):
         a 30 s cache) and reported via ``docker_available``/``lxc_available``.
         """
         return True
+
+    def close(self) -> None:
+        """Release the per-container-stats thread pool, if one was created."""
+        if self._stats_executor is not None:
+            self._stats_executor.shutdown(wait=False, cancel_futures=True)
+            self._stats_executor = None
 
     def collect(self) -> ContainerMetrics:
         with self._lock:
@@ -148,20 +158,28 @@ class ContainersPlugin(MonitorPlugin):
         if not by_id:
             return infos
 
+        if self._stats_executor is None:
+            self._stats_executor = ThreadPoolExecutor(
+                max_workers=8, thread_name_prefix="raven-docker-stats"
+            )
+        pool = self._stats_executor
+
+        # Not a `with pool:` block: that would call shutdown(wait=True) on
+        # exit and block until every submission finished, silently
+        # defeating `_STATS_DEADLINE` below — slow calls just keep running in
+        # the reused pool and their results are ignored once the deadline
+        # passes.
         stats: dict[str, tuple[float | None, int | None, int | None]] = {}
-        with ThreadPoolExecutor(
-            max_workers=min(len(by_id), 8), thread_name_prefix="raven-docker-stats"
-        ) as pool:
-            futures = {pool.submit(self._container_stats, c): cid for cid, c in by_id.items()}
-            try:
-                for future in as_completed(futures, timeout=_STATS_DEADLINE):
-                    cid = futures[future]
-                    try:
-                        stats[cid] = future.result()
-                    except Exception:
-                        log.debug("Stats failed for container %s", cid, exc_info=True)
-            except TimeoutError:
-                log.debug("Docker stats deadline exceeded — reporting partial stats")
+        futures = {pool.submit(self._container_stats, c): cid for cid, c in by_id.items()}
+        try:
+            for future in as_completed(futures, timeout=_STATS_DEADLINE):
+                cid = futures[future]
+                try:
+                    stats[cid] = future.result()
+                except Exception:
+                    log.debug("Stats failed for container %s", cid, exc_info=True)
+        except TimeoutError:
+            log.debug("Docker stats deadline exceeded — reporting partial stats")
 
         return [
             replace(

@@ -210,6 +210,45 @@ def test_processes_plugin_sorting(mock_process_iter):
     assert metrics[1].pid == 1
 
 
+@patch("psutil.process_iter")
+def test_processes_plugin_sort_override_re_truncates(mock_process_iter):
+    """A per-call sort_by must change *truncation*, not just the order of an
+    already-truncated slice — otherwise cycling sort in the TUI can never
+    surface a process that the default sort's truncation already cut."""
+    from raven.config import ProcessesConfig, RavenConfig
+
+    def make_info(pid, cpu, mem):
+        info = MagicMock()
+        info.info = {
+            "pid": pid,
+            "name": f"p{pid}",
+            "username": "user",
+            "cpu_percent": cpu,
+            "memory_percent": mem,
+            "status": "running",
+            "cmdline": ["run"],
+            "num_threads": 1,
+            "memory_info": MagicMock(rss=1000),
+        }
+        return info
+
+    # 100 high-CPU/low-memory processes fill the default 100-item floor...
+    bulk = [make_info(i, cpu=100.0 - i, mem=0.1) for i in range(100)]
+    # ...so a low-CPU/very-high-memory process ranks outside the top 100 by
+    # CPU and would be cut before any consumer ever saw it.
+    standout = make_info(999, cpu=0.0, mem=99.0)
+    mock_process_iter.return_value = [*bulk, standout]
+
+    cfg = RavenConfig(processes=ProcessesConfig(max_display=25, sort_by="cpu"))
+    plugin = ProcessesPlugin(config=cfg)
+
+    default_sorted = plugin.collect()
+    assert not any(p.pid == 999 for p in default_sorted)
+
+    memory_sorted = plugin.collect(sort_by="memory")
+    assert any(p.pid == 999 for p in memory_sorted)
+
+
 def test_processes_plugin_config_cache():
     from raven.config import ProcessesConfig, RavenConfig
 

@@ -35,5 +35,13 @@ class MonitorPlugin(ABC):
     def is_available(self) -> bool:
         """Return True if this plugin can operate on the current platform."""
 
+    def close(self) -> None:  # noqa: B027 - intentional no-op default hook
+        """Release any resources this plugin holds. Default: nothing to do.
+
+        Overridden by plugins that own long-lived resources (e.g. a reused
+        thread pool), so ``Collector`` can clean them up generically without
+        needing to know which plugins allocate what.
+        """
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name!r}>"

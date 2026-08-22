@@ -8,6 +8,7 @@ Keybindings:
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from pathlib import Path
 
@@ -98,10 +99,36 @@ class RavenApp(App):
     async def _async_tick(self) -> None:
         try:
             snap = await self._collector.collect_async()
+            snap = await self._reconcile_process_sort(snap)
             self._update_widgets(snap)
         except Exception:
             log.exception("Metric collection failed")
             self.notify("⚠ Collection failed — data may be stale", severity="warning")
+
+    async def _reconcile_process_sort(self, snap: SystemSnapshot) -> SystemSnapshot:
+        """Re-truncate the process list if the active sort isn't the configured default.
+
+        The snapshot's process list is truncated by the plugin using
+        ``config.processes.sort_by``. When the user cycles to a different
+        sort with `p`, re-sorting that already-truncated slice can hide a
+        process that would rank in range under the new key. Only local
+        ``Collector`` instances support the on-demand re-collect this needs
+        (``RemoteCollector`` has no way to ask the remote agent for a
+        different sort); other collectors fall back to the old best-effort
+        re-sort in ``ProcessTable``.
+        """
+        active_sort = _SORT_CYCLE[self._sort_index]
+        if active_sort == self._config.processes.sort_by:
+            return snap
+        collect_processes_async = getattr(self._collector, "collect_processes_async", None)
+        if collect_processes_async is None:
+            return snap
+        try:
+            procs = await collect_processes_async(active_sort)
+        except Exception:
+            log.debug("Failed to refresh processes for sort=%s", active_sort, exc_info=True)
+            return snap
+        return dataclasses.replace(snap, processes=procs)
 
     def _update_widgets(self, snap: SystemSnapshot) -> None:
         """Push a snapshot to all dashboard widgets."""

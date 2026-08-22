@@ -5,6 +5,7 @@ reintroduces one of these fails loudly rather than silently.
 """
 
 import asyncio
+import threading
 from unittest.mock import patch
 
 import pytest
@@ -338,3 +339,157 @@ def test_general_config_defaults_are_valid():
     cfg = GeneralConfig()
     assert cfg.refresh_interval >= 1
     assert cfg.theme in ("dark", "light")
+
+
+# ── P2-6: a hung plugin must not be resubmitted every cycle ──────────────────
+
+
+def test_collector_does_not_resubmit_a_still_running_plugin(mock_config):
+    """Resubmitting a plugin whose previous call hasn't returned is what
+    exhausts the thread pool when a plugin hangs — repeated cycles would each
+    permanently claim another worker on top of the ones already stuck. The
+    same in-flight future must be reused across cycles instead."""
+    started = threading.Event()
+    release = threading.Event()
+    calls: list[int] = []
+
+    class SlowPlugin:
+        name = "cpu"
+        category = "cpu"
+
+        def collect(self):
+            calls.append(1)
+            started.set()
+            release.wait(timeout=5)
+            from raven.core.models import CpuMetrics
+
+            return CpuMetrics()
+
+        def close(self):
+            pass
+
+    collector = Collector(mock_config)
+    collector.plugins = [SlowPlugin()]
+    try:
+        with patch("raven.core.collector.as_completed", side_effect=TimeoutError):
+            collector.collect()
+        assert started.wait(timeout=2), "plugin.collect() was never invoked"
+        assert "cpu" in collector._inflight
+        assert not collector._inflight["cpu"].done()
+
+        collector._last_collected_at = 0.0  # force past the TTL cache
+        with patch("raven.core.collector.as_completed", side_effect=TimeoutError):
+            collector.collect()
+
+        assert len(calls) == 1, "hung plugin was resubmitted instead of reused"
+    finally:
+        release.set()
+        collector.close()
+
+
+# ── P2-5: TUI sort cycling must re-truncate, not just re-sort ────────────────
+
+
+def test_collector_collect_processes_delegates_to_processes_plugin(mock_config):
+    collector = Collector(mock_config)
+    try:
+        result = collector.collect_processes("pid")
+        assert isinstance(result, list)
+    finally:
+        collector.close()
+
+
+@pytest.mark.asyncio
+async def test_collector_collect_processes_async(mock_config):
+    collector = Collector(mock_config)
+    try:
+        result = await collector.collect_processes_async("memory")
+        assert isinstance(result, list)
+    finally:
+        collector.close()
+
+
+def test_collector_collect_processes_without_processes_plugin_returns_empty(mock_config):
+    collector = Collector(mock_config)
+    collector.plugins = []
+    try:
+        assert collector.collect_processes("cpu") == []
+    finally:
+        collector.close()
+
+
+# ── P2-8: container stats pool is reused, not rebuilt every cycle ────────────
+
+
+def test_containers_plugin_reuses_stats_executor_across_cycles():
+    from unittest.mock import MagicMock
+
+    from raven.plugins.containers import ContainersPlugin
+
+    mock_docker = MagicMock()
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_container.name = "c1"
+    mock_container.short_id = "abc123"
+    mock_container.status = "running"
+    mock_container.attrs = {"Config": {"Image": "nginx"}}
+    mock_container.stats.return_value = {
+        "cpu_stats": {"cpu_usage": {"total_usage": 200}, "system_cpu_usage": 2000},
+        "precpu_stats": {"cpu_usage": {"total_usage": 100}, "system_cpu_usage": 1000},
+        "memory_stats": {"usage": 1000, "stats": {"cache": 0}},
+    }
+    mock_client.containers.list.return_value = [mock_container]
+    mock_docker.from_env.return_value = mock_client
+
+    class ModulesStub:
+        container_stats = True
+
+    class ConfigStub:
+        modules = ModulesStub()
+
+    with (
+        patch("shutil.which", return_value=None),
+        patch.dict("sys.modules", {"docker": mock_docker}),
+    ):
+        plugin = ContainersPlugin(config=ConfigStub())
+        plugin.collect()
+        first_pool = plugin._stats_executor
+        assert first_pool is not None
+
+        plugin._last_check = 0.0  # force a fresh availability + stats round
+        plugin.collect()
+        assert plugin._stats_executor is first_pool, "a new pool was built for the same cycle type"
+
+        plugin.close()
+        assert plugin._stats_executor is None
+
+
+# ── P2-7: NetworkWidget must not accumulate interfaces forever ───────────────
+
+
+def test_network_widget_prunes_interfaces_no_longer_present():
+    from raven.core.models import NetworkInterface, NetworkMetrics
+    from raven.tui.widgets.network_widget import NetworkWidget
+
+    def snap_with(names):
+        return type(
+            "S",
+            (),
+            {
+                "network": NetworkMetrics(
+                    interfaces=[
+                        NetworkInterface(name=n, bytes_sent=100, bytes_recv=100) for n in names
+                    ],
+                    connections_count=0,
+                )
+            },
+        )()
+
+    widget = NetworkWidget()
+    with patch.object(type(widget), "update", lambda self, t: None):
+        widget.update_data(snap_with(["eth0", "wg0"]))
+        assert set(widget._prev_sent) == {"eth0", "wg0"}
+
+        widget.update_data(snap_with(["eth0"]))  # wg0 (VPN) disconnected
+        assert set(widget._prev_sent) == {"eth0"}
+        assert set(widget._prev_recv) == {"eth0"}

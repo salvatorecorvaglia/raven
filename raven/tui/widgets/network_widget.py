@@ -24,6 +24,14 @@ class NetworkWidget(Static):
 
         non_lo_interfaces = [i for i in net.interfaces if not i.name.startswith("lo")]
 
+        # Forget interfaces no longer present (VPN/tether connect-disconnect
+        # churn) so a long-running TUI session doesn't accumulate entries for
+        # every interface name it's ever seen.
+        current_names = {iface.name for iface in net.interfaces}
+        for stale in set(self._prev_sent) - current_names:
+            self._prev_sent.pop(stale, None)
+            self._prev_recv.pop(stale, None)
+
         for iface in non_lo_interfaces[:5]:
             # Calculate per-second rates
             prev_s = self._prev_sent.get(iface.name, iface.bytes_sent)

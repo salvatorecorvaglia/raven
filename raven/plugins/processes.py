@@ -37,7 +37,14 @@ class ProcessesPlugin(MonitorPlugin):
         "name": ("name", False),
     }
 
-    def collect(self) -> list[ProcessInfo]:
+    def collect(self, sort_by: str | None = None) -> list[ProcessInfo]:
+        """Collect and truncate the process list.
+
+        ``sort_by`` overrides ``config.processes.sort_by`` for this call only
+        — used by ``Collector.collect_processes`` so the TUI can request a
+        truncation consistent with whichever sort key is currently active,
+        rather than always truncating by the key fixed at construction time.
+        """
         limit = max(100, self._config.processes.max_display * 2)
 
         attrs = [
@@ -70,7 +77,7 @@ class ProcessesPlugin(MonitorPlugin):
         # unconditionally (as this once did) meant that with sort_by="memory" a
         # RAM-heavy but idle process could be cut before any consumer saw it.
         sort_attr, descending = self._SORT_KEYS.get(
-            self._config.processes.sort_by, ("cpu_percent", True)
+            sort_by or self._config.processes.sort_by, ("cpu_percent", True)
         )
         if sort_attr == "name":
             raw_procs.sort(key=lambda item: (item.get("name") or "").lower())

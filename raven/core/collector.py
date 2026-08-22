@@ -48,6 +48,10 @@ class Collector:
         self._last_snapshot: SystemSnapshot | None = None
         self._last_collected_at: float = 0.0
         self._cache_lock = threading.Lock()
+        # Tracks each plugin's most recently submitted future by name, across
+        # collect() calls. A plugin whose call is still running when the next
+        # cycle starts is *not* resubmitted — see collect()'s inflight check.
+        self._inflight: dict[str, Any] = {}
         atexit.register(self._shutdown)
         log.info(
             "Collector initialised with %d plugins: %s",
@@ -57,6 +61,11 @@ class Collector:
 
     def _shutdown(self) -> None:
         """Shut down the thread pool gracefully on exit."""
+        for plugin in self.plugins:
+            try:
+                plugin.close()
+            except Exception:
+                log.debug("Plugin %s close() failed", plugin.name, exc_info=True)
         try:
             self._executor.shutdown(wait=True, cancel_futures=True)
         except Exception:
@@ -100,13 +109,38 @@ class Collector:
                 return self._last_snapshot
 
             results: dict[str, Any] = {}
-            futures = {self._executor.submit(plugin.collect): plugin for plugin in self.plugins}
-            for future in as_completed(futures):
-                plugin = futures[future]
-                try:
-                    results[plugin.name] = future.result(timeout=10)
-                except Exception:
-                    log.exception("Plugin %s failed during collection", plugin.name)
+            futures: dict[Any, Any] = {}
+            for plugin in self.plugins:
+                prior = self._inflight.get(plugin.name)
+                if prior is not None:
+                    # Still running from an earlier cycle (past its own
+                    # deadline) — reuse it instead of submitting a second
+                    # call on top of it. Resubmitting a hung plugin on every
+                    # cycle is what exhausts the pool: each hang would
+                    # permanently claim another worker on top of the ones
+                    # already stuck.
+                    futures[prior] = plugin
+                    if prior.done():
+                        del self._inflight[plugin.name]
+                    continue
+                fut = self._executor.submit(plugin.collect)
+                self._inflight[plugin.name] = fut
+                futures[fut] = plugin
+
+            try:
+                for future in as_completed(futures, timeout=10):
+                    plugin = futures[future]
+                    try:
+                        results[plugin.name] = future.result()
+                    except Exception:
+                        log.exception("Plugin %s failed during collection", plugin.name)
+            except TimeoutError:
+                stuck = sorted(p.name for f, p in futures.items() if not f.done())
+                log.warning(
+                    "Plugins still running past the 10s collection deadline: %s "
+                    "— using stale/default values for them this cycle",
+                    stuck,
+                )
 
             self._last_snapshot = self._assemble(results, self._process_count(results))
             self._last_collected_at = time.time()  # set to the exact completion time
@@ -145,6 +179,27 @@ class Collector:
         """Run collection in a thread executor (non-blocking for async apps)."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.collect)
+
+    def collect_processes(self, sort_by: str) -> list[Any]:
+        """Re-run the processes plugin with an explicit sort key.
+
+        Bypasses the snapshot cache. The cached snapshot's process list was
+        truncated using whichever sort key was active when it was collected;
+        re-sorting that already-truncated slice by a different key can hide
+        processes that would rank in range under the new key. Called
+        on-demand (e.g. the TUI's sort-cycling action), not on every tick.
+        """
+        from raven.plugins.processes import ProcessesPlugin
+
+        for plugin in self.plugins:
+            if isinstance(plugin, ProcessesPlugin):
+                return plugin.collect(sort_by=sort_by)
+        return []
+
+    async def collect_processes_async(self, sort_by: str) -> list[Any]:
+        """Async wrapper around collect_processes."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.collect_processes, sort_by)
 
     # ── private ──────────────────────────────────────────────────────────
 
