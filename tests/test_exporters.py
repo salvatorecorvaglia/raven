@@ -1,3 +1,7 @@
+import dataclasses
+
+from raven.config import ProcessesConfig, RavenConfig
+from raven.core.models import ProcessInfo
 from raven.export.csv_export import CsvExporter
 from raven.export.json_export import JsonExporter
 from raven.export.text_export import TextExporter
@@ -15,6 +19,43 @@ def test_csv_exporter(dummy_snapshot):
     output = exporter.format(dummy_snapshot, modules=["cpu"])
     assert "cpu.percent_overall" in output
     assert "10.0" in output
+
+
+def _with_processes(snapshot, count):
+    procs = [
+        ProcessInfo(pid=i, name=f"proc{i}", cpu_percent=float(count - i), memory_percent=1.0)
+        for i in range(count)
+    ]
+    return dataclasses.replace(snapshot, processes=procs, process_count=count)
+
+
+def test_json_csv_text_report_the_same_process_count(dummy_snapshot):
+    """The same snapshot must yield the same process count regardless of
+    export format — JSON used to dump up to max(100, max_display*2), and CSV
+    hardcoded a cap of 5, while only text respected processes.max_display."""
+    cfg = RavenConfig(processes=ProcessesConfig(max_display=3, sort_by="cpu"))
+    snap = _with_processes(dummy_snapshot, count=10)
+
+    json_out = JsonExporter(cfg).format(snap)
+    csv_out = CsvExporter(cfg).format(snap)
+    text_out = TextExporter(cfg).format(snap)
+
+    assert json_out.count('"pid"') == 3
+    assert csv_out.count("processes[") // len(ProcessInfo.__dataclass_fields__) == 3
+    assert text_out.count("proc") - text_out.count("Procs") == 3
+
+
+def test_csv_exporter_neutralises_formula_injection(dummy_snapshot):
+    """A process name starting with '=' must not reach the CSV cell as-is —
+    Excel/Sheets would interpret it as a formula on open."""
+    snap = dataclasses.replace(
+        dummy_snapshot,
+        processes=[ProcessInfo(pid=1, name="=cmd|' /C calc'!A1", cpu_percent=1.0)],
+        process_count=1,
+    )
+    output = CsvExporter().format(snap, modules=["processes"])
+    assert ",=cmd" not in output  # unprefixed, would be read as a formula
+    assert "'=cmd" in output
 
 
 def test_text_exporter(dummy_snapshot):

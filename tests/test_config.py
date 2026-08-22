@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 
 import pytest
@@ -13,6 +14,7 @@ from raven.config import (
     _dict_to_config,
     load_config,
     validate_config,
+    warn_insecure_config_permissions,
 )
 
 
@@ -81,6 +83,34 @@ def test_config_validation():
     # Invalid sort_by
     with pytest.raises(ValueError, match="processes.sort_by must be one of"):
         validate_config(RavenConfig(processes=ProcessesConfig(sort_by="invalid")))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits only")
+def test_world_readable_config_with_api_key_warns(tmp_path, capsys):
+    cfg_file = tmp_path / "raven.toml"
+    cfg_file.write_text("[web]\napi_key = 'secret'\n", encoding="utf-8")
+    cfg_file.chmod(0o644)  # group/other readable
+
+    warn_insecure_config_permissions(cfg_file, RavenConfig(web=WebConfig(api_key="secret")))
+    assert "readable by other users" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits only")
+def test_private_config_with_api_key_does_not_warn(tmp_path, capsys):
+    cfg_file = tmp_path / "raven.toml"
+    cfg_file.write_text("[web]\napi_key = 'secret'\n", encoding="utf-8")
+    cfg_file.chmod(0o600)  # owner-only
+
+    warn_insecure_config_permissions(cfg_file, RavenConfig(web=WebConfig(api_key="secret")))
+    assert capsys.readouterr().err == ""
+
+
+def test_world_readable_config_without_api_key_does_not_warn(tmp_path, capsys):
+    cfg_file = tmp_path / "raven.toml"
+    cfg_file.write_text("[general]\nrefresh_interval = 2\n", encoding="utf-8")
+
+    warn_insecure_config_permissions(cfg_file, RavenConfig())
+    assert capsys.readouterr().err == ""
 
 
 def test_config_scalar_sections():

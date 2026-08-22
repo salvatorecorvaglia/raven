@@ -50,6 +50,9 @@ class RemoteCollector:
         self.api_key = api_key
         self._client: httpx.Client | None = None
         self._async_client: httpx.AsyncClient | None = None
+        # Keeps a strong reference to fire-and-forget cleanup tasks scheduled
+        # by close() so the event loop doesn't garbage-collect them mid-close.
+        self._pending_close_tasks: set[asyncio.Task] = set()
 
     def _headers(self) -> dict[str, str]:
         hdrs: dict[str, str] = {}
@@ -74,7 +77,10 @@ class RemoteCollector:
         ``AsyncClient``; closing just the sync client would leak its
         connection pool.  Prefer ``close_async()`` from async code — this
         drives ``aclose()`` on a throwaway loop, which is only possible when
-        no loop is already running on this thread.
+        no loop is already running on this thread.  If a loop *is* already
+        running, the close is scheduled on it instead of being dropped, so the
+        connection pool still gets released even though this method can't
+        await it.
         """
         if self._client is not None:
             self._client.close()
@@ -82,14 +88,18 @@ class RemoteCollector:
         if self._async_client is not None:
             client, self._async_client = self._async_client, None
             try:
-                asyncio.get_running_loop()
+                loop = asyncio.get_running_loop()
             except RuntimeError:
                 asyncio.run(client.aclose())
             else:
                 log.warning(
                     "RemoteCollector.close() called from a running event loop; "
-                    "use close_async() to release the async client cleanly"
+                    "scheduling async client cleanup — prefer close_async() to "
+                    "await it directly"
                 )
+                task = loop.create_task(client.aclose())
+                self._pending_close_tasks.add(task)
+                task.add_done_callback(self._pending_close_tasks.discard)
 
     async def close_async(self) -> None:
         """Close both HTTP clients, awaiting a clean async shutdown."""

@@ -4,6 +4,7 @@ Each test is named for the audit finding it pins down, so a future change that
 reintroduces one of these fails loudly rather than silently.
 """
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -195,6 +196,24 @@ def test_remote_collector_close_is_idempotent():
     client = RemoteCollector("http://localhost:9090")
     client.close()
     client.close()
+
+
+@pytest.mark.asyncio
+async def test_remote_collector_close_from_running_loop_still_releases_client():
+    """close() called synchronously from inside a running event loop used to
+    drop the AsyncClient reference without ever calling aclose() on it — a
+    real connection-pool leak. It must now schedule the cleanup instead."""
+    client = RemoteCollector("http://localhost:9090")
+    await client._get_async_client()
+    async_client = client._async_client
+    assert async_client is not None
+
+    client.close()  # called from within this running loop
+    assert client._async_client is None
+    assert client._pending_close_tasks  # cleanup was scheduled, not dropped
+
+    await asyncio.gather(*client._pending_close_tasks)
+    assert async_client.is_closed
 
 
 # ── C6: container plugin must stay loaded when Docker is down ────────────────

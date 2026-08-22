@@ -10,6 +10,8 @@ Search order (first match wins):
 from __future__ import annotations
 
 import logging
+import stat
+import sys
 import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -265,6 +267,36 @@ def validate_config(config: RavenConfig) -> None:
         )
 
 
+def warn_insecure_config_permissions(path: Path, cfg: RavenConfig) -> None:
+    """Warn if a config file holding a plaintext API key is group/world readable.
+
+    POSIX permission bits aren't meaningful on Windows, so this is a no-op
+    there. Mirrors the ``warn_open_bind`` pattern in ``core.api``: a
+    ``log.warning`` for anyone watching logs, plus a stderr print for anyone
+    just running the command interactively.
+    """
+    if sys.platform == "win32":
+        return
+    if not (cfg.web.api_key or cfg.remote.api_key):
+        return
+    try:
+        mode = path.stat().st_mode
+    except OSError:
+        return
+    if mode & (stat.S_IRWXG | stat.S_IRWXO):
+        log.warning(
+            "⚠️  %s contains a plaintext api_key but is readable by other "
+            "users on this system. Run `chmod 600 %s` to restrict access.",
+            path,
+            path,
+        )
+        print(
+            f"⚠️  WARNING: {path} contains a plaintext api_key but is readable "
+            f"by other users. Run `chmod 600 {path}` to restrict access.",
+            file=sys.stderr,
+        )
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 
@@ -286,4 +318,6 @@ def load_config(explicit_path: str | None = None) -> RavenConfig:
     merged = _deep_merge(_DEFAULTS, user_data)
     cfg = _dict_to_config(merged)
     validate_config(cfg)
+    if config_file is not None:
+        warn_insecure_config_permissions(config_file, cfg)
     return cfg
