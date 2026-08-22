@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 from raven.config import RavenConfig
 from raven.core.models import SystemSnapshot
+from raven.core.sort import sort_processes
 
 
 class BaseExporter(ABC):
@@ -20,18 +21,7 @@ class BaseExporter(ABC):
 
     def sorted_processes(self, snapshot: SystemSnapshot) -> list:
         """Processes sorted by ``processes.sort_by`` and capped at ``max_display``."""
-        sort_map = {
-            "cpu": ("cpu_percent", True),
-            "memory": ("memory_percent", True),
-            "pid": ("pid", False),
-            "name": ("name", False),
-        }
-        key, reverse = sort_map.get(self.config.processes.sort_by, ("cpu_percent", True))
-        procs = sorted(
-            snapshot.processes,
-            key=lambda p: (getattr(p, key, 0) or 0) if key != "name" else (p.name or "").lower(),
-            reverse=reverse,
-        )
+        procs = sort_processes(snapshot.processes, self.config.processes.sort_by)
         return procs[: self.config.processes.max_display]
 
     @abstractmethod

@@ -8,6 +8,7 @@ import psutil
 
 from raven.config import RavenConfig
 from raven.core.models import ProcessInfo
+from raven.core.sort import PROCESS_SORT_KEYS
 from raven.plugins.base import MonitorPlugin
 
 log = logging.getLogger(__name__)
@@ -27,15 +28,6 @@ class ProcessesPlugin(MonitorPlugin):
 
     def is_available(self) -> bool:
         return True
-
-    # Snapshot field name → the ProcessInfo attribute to sort on, and whether
-    # larger values rank first.  Mirrors ProcessTable's sort options.
-    _SORT_KEYS: dict[str, tuple[str, bool]] = {
-        "cpu": ("cpu_percent", True),
-        "memory": ("memory_percent", True),
-        "pid": ("pid", False),
-        "name": ("name", False),
-    }
 
     def collect(self, sort_by: str | None = None) -> list[ProcessInfo]:
         """Collect and truncate the process list.
@@ -76,8 +68,8 @@ class ProcessesPlugin(MonitorPlugin):
         # Sort by the *configured* key before truncating.  Sorting by CPU here
         # unconditionally (as this once did) meant that with sort_by="memory" a
         # RAM-heavy but idle process could be cut before any consumer saw it.
-        sort_attr, descending = self._SORT_KEYS.get(
-            sort_by or self._config.processes.sort_by, ("cpu_percent", True)
+        sort_attr, descending = PROCESS_SORT_KEYS.get(
+            sort_by or self._config.processes.sort_by, PROCESS_SORT_KEYS["cpu"]
         )
         if sort_attr == "name":
             raw_procs.sort(key=lambda item: (item.get("name") or "").lower())

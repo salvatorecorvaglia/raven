@@ -7,6 +7,7 @@ from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
 from raven.core.utils import color_for_temp
+from raven.tui.widgets._common import section_header
 
 
 class SensorWidget(Static):
@@ -18,7 +19,7 @@ class SensorWidget(Static):
 
         # Temperatures
         if sensors.temperatures:
-            text.append("  Temps\n", style="bold cyan")
+            section_header(text, "Temps")
             for t in sensors.temperatures[:6]:
                 color = color_for_temp(t.current, t.high, t.critical)
                 text.append(f"  {t.label:<18} ", style="")
@@ -29,14 +30,14 @@ class SensorWidget(Static):
 
         # Fans
         if sensors.fans:
-            text.append("  Fans\n", style="bold cyan")
+            section_header(text, "Fans")
             for f in sensors.fans[:4]:
                 text.append(f"  {f.label:<18} {f.current} RPM\n")
 
         # Battery
         if sensors.battery:
             bat = sensors.battery
-            text.append("  Battery\n", style="bold cyan")
+            section_header(text, "Battery")
             plugged = "⚡ Plugged" if bat.power_plugged else "🔋 Battery"
             color = "green" if (bat.percent or 0) > 20 else "red"
             pct_str = f"{bat.percent:.0f}%" if bat.percent is not None else "Unknown"
@@ -45,7 +46,7 @@ class SensorWidget(Static):
         # Users
         if snap.users:
             user_names = list({u.name for u in snap.users})[:5]
-            text.append("  Users\n", style="bold cyan")
+            section_header(text, "Users")
             text.append(f"  {', '.join(user_names)}\n", style="")
 
         if not text.plain.strip():

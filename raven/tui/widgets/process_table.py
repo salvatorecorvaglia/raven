@@ -5,6 +5,7 @@ from __future__ import annotations
 from textual.widgets import DataTable
 
 from raven.core.models import SystemSnapshot
+from raven.core.sort import PROCESS_SORT_KEYS, sort_processes
 from raven.core.utils import human_bytes_compact
 
 
@@ -24,34 +25,20 @@ class ProcessTable(DataTable):
 
         # Update headers with sort indicators
         base_headers = ["PID", "Name", "User", "CPU%", "MEM%", "RSS", "Threads", "Status"]
-        sort_indices = {
-            "pid": (0, False),
-            "name": (1, False),
-            "cpu": (3, True),
-            "memory": (4, True),
-        }
+        sort_columns = {"pid": 0, "name": 1, "cpu": 3, "memory": 4}
         cols = list(self.columns.values())
         for idx, base in enumerate(base_headers):
             if idx < len(cols):
                 cols[idx].label = Text(base)
-        if sort_by in sort_indices:
-            col_idx, rev = sort_indices[sort_by]
+        if sort_by in sort_columns:
+            col_idx = sort_columns[sort_by]
+            _, descending = PROCESS_SORT_KEYS.get(sort_by, PROCESS_SORT_KEYS["cpu"])
             if col_idx < len(cols):
-                arrow = "▼" if rev else "▲"
+                arrow = "▼" if descending else "▲"
                 cols[col_idx].label = Text(f"{base_headers[col_idx]} {arrow}")
         self.refresh()
 
-        # Determine sort
-        sort_map = {
-            "cpu": ("cpu_percent", True),
-            "memory": ("memory_percent", True),
-            "pid": ("pid", False),
-            "name": ("name", False),
-        }
-        key, rev = sort_map.get(sort_by, ("cpu_percent", True))
-
-        procs = sorted(snap.processes, key=lambda p: getattr(p, key, 0), reverse=rev)
-        procs = procs[:max_display]
+        procs = sort_processes(snap.processes, sort_by)[:max_display]
 
         current_row_count = self.row_count
         target_row_count = len(procs)

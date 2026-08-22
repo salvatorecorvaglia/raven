@@ -7,6 +7,7 @@ from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
 from raven.core.utils import human_bytes, render_bar
+from raven.tui.widgets._common import section_header
 
 
 class DiskWidget(Static):
@@ -15,7 +16,7 @@ class DiskWidget(Static):
     def update_data(self, snap: SystemSnapshot) -> None:
         disk = snap.disk
         text = Text()
-        text.append("  Disk\n", style="bold cyan")
+        section_header(text, "Disk")
 
         for dp in disk.partitions[:6]:
             mount_truncated = dp.mountpoint[:14]

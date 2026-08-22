@@ -9,6 +9,7 @@ from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
 from raven.core.utils import color_for_percent, human_bytes, render_bar, text_sparkline
+from raven.tui.widgets._common import section_header
 
 
 class MemoryWidget(Static):
@@ -24,7 +25,7 @@ class MemoryWidget(Static):
         self._history.append(mem.percent)
 
         text = Text()
-        text.append("  Memory\n", style="bold cyan")
+        section_header(text, "Memory")
 
         # RAM bar
         text.append("  RAM   ")

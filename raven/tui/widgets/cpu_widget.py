@@ -9,6 +9,7 @@ from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
 from raven.core.utils import color_for_percent, render_bar, text_sparkline
+from raven.tui.widgets._common import section_header
 
 
 class CpuWidget(Static):
@@ -25,7 +26,7 @@ class CpuWidget(Static):
         self._history.append(cpu.percent_overall)
 
         text = Text()
-        text.append("  CPU\n", style="bold cyan")
+        section_header(text, "CPU")
 
         # Overall bar
         text.append("  Overall  ")

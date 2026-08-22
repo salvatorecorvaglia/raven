@@ -6,6 +6,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
+from raven.tui.widgets._common import section_header
 
 
 class ContainerWidget(Static):
@@ -30,7 +31,7 @@ class ContainerWidget(Static):
                 pass
 
         text = Text()
-        text.append("  Containers\n", style="bold cyan")
+        section_header(text, "Containers")
 
         if not containers.containers:
             text.append("  No containers detected\n", style="dim")

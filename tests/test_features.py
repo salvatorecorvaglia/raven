@@ -372,6 +372,78 @@ def test_single_sample_produces_no_sparkline():
     assert "History" not in out
 
 
+# ── P3-10: sensor/container widgets previously had no dedicated tests ────────
+
+
+def test_sensor_widget_renders_temps_fans_battery_and_users():
+    from raven.core.models import (
+        BatteryInfo,
+        FanReading,
+        SensorMetrics,
+        TemperatureReading,
+        UserInfo,
+    )
+    from raven.tui.widgets.sensor_widget import SensorWidget
+
+    snap = SystemSnapshot(
+        sensors=SensorMetrics(
+            temperatures=[TemperatureReading(label="Core 0", current=55.0, high=90.0)],
+            fans=[FanReading(label="Fan 1", current=2200)],
+            battery=BatteryInfo(percent=42.0, power_plugged=False),
+        ),
+        users=[UserInfo(name="alice"), UserInfo(name="bob")],
+    )
+    out = _render(SensorWidget(), [snap])
+    assert "Temps" in out and "Core 0" in out and "55" in out
+    assert "Fans" in out and "2200 RPM" in out
+    assert "Battery" in out and "42%" in out and "🔋" in out
+    assert "Users" in out and "alice" in out and "bob" in out
+
+
+def test_sensor_widget_reports_no_data_when_all_empty():
+    from raven.tui.widgets.sensor_widget import SensorWidget
+
+    out = _render(SensorWidget(), [SystemSnapshot()])
+    assert "No sensor data" in out
+
+
+def test_container_widget_hides_panel_when_no_runtime_available():
+    from raven.tui.widgets.container_widget import ContainerWidget
+
+    widget = ContainerWidget()
+    widget.update_data(SystemSnapshot())  # docker_available=False, lxc_available=False
+    assert widget.display is False
+
+
+def test_container_widget_shows_running_containers():
+    from raven.core.models import ContainerInfo, ContainerMetrics
+    from raven.tui.widgets.container_widget import ContainerWidget
+
+    snap = SystemSnapshot(
+        containers=ContainerMetrics(
+            containers=[
+                ContainerInfo(name="web", image="nginx", status="running", runtime="docker"),
+                ContainerInfo(name="db", image="postgres", status="exited", runtime="docker"),
+            ],
+            docker_available=True,
+        )
+    )
+    out = _render(ContainerWidget(), [snap])
+    assert "Containers" in out
+    assert "1/2 running" in out
+    assert "web" in out and "nginx" in out
+    assert "db" in out and "postgres" in out
+
+
+def test_container_widget_reports_empty_state_when_runtime_available_but_idle():
+    from raven.core.models import ContainerMetrics
+    from raven.tui.widgets.container_widget import ContainerWidget
+
+    snap = SystemSnapshot(containers=ContainerMetrics(containers=[], docker_available=True))
+    out = _render(ContainerWidget(), [snap])
+    assert "No containers detected" in out
+
+
 # ── A6: plugins share a uniform constructor ──────────────────────────────────
 
 

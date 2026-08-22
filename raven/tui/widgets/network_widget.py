@@ -7,6 +7,7 @@ from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
 from raven.core.utils import human_bytes
+from raven.tui.widgets._common import section_header
 
 
 class NetworkWidget(Static):
@@ -20,7 +21,7 @@ class NetworkWidget(Static):
     def update_data(self, snap: SystemSnapshot, refresh_interval: float = 2.0) -> None:
         net = snap.network
         text = Text()
-        text.append("  Network\n", style="bold cyan")
+        section_header(text, "Network")
 
         non_lo_interfaces = [i for i in net.interfaces if not i.name.startswith("lo")]
 
