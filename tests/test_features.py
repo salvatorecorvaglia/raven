@@ -175,6 +175,20 @@ def test_health_reports_max_display():
         assert client.get("/health").json()["max_display"] == 7
 
 
+def test_auth_modal_has_dialog_semantics_and_focus_trap():
+    """A keyboard user must not be able to Tab out to the dimmed dashboard
+    behind the auth modal while it's blocking the app."""
+    from pathlib import Path
+
+    static = Path(__file__).parent.parent / "raven/web/static"
+    html = (static / "index.html").read_text(encoding="utf-8")
+    js = (static / "app.js").read_text(encoding="utf-8")
+
+    assert 'role="dialog"' in html
+    assert 'aria-modal="true"' in html
+    assert "trapAuthModalFocus" in js
+
+
 def test_dashboard_has_no_hardcoded_process_limit():
     from pathlib import Path
 

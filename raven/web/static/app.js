@@ -825,6 +825,28 @@
         }
     }
 
+    // Keeps Tab from leaving the modal while it's open — without this, a
+    // keyboard user can tab out to the dimmed dashboard behind it.
+    function trapAuthModalFocus(e) {
+        if (e.key !== "Tab") return;
+        const modal = document.getElementById("auth-modal");
+        if (!modal || modal.style.display !== "flex") return;
+        const focusable = modal.querySelectorAll(
+            'input, button, [href], select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    }
+    document.addEventListener("keydown", trapAuthModalFocus);
+
     // Exponential backoff, so a downed server is not polled every 3 s forever.
     function scheduleReconnect(badge) {
         if (reconnectAttempts >= RECONNECT_MAX_ATTEMPTS) {
