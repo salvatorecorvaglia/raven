@@ -80,6 +80,7 @@ Our test suite includes:
 - Unit tests for configuration, exporters, models, and utility functions.
 - Integration tests verifying remote client/server communication using FastAPI's test client.
 - UI/TUI tests validating Textual widgets and application lifecycle.
+- Background runner tests validating daemonized web/remote server orchestration.
 - Feature and regression tests for edge cases and plugin robustness.
 
 ---

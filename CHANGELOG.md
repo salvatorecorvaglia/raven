@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-25
+
+### Added
+
+- Added a warning (log entry and stderr message) when a loaded `raven.toml` contains a plaintext `api_key` but the file is group/world-readable, prompting the user to `chmod 600` it.
+- Added CSV export sanitization against formula injection: fields beginning with `=`, `+`, `-`, `@`, tab, or carriage return (e.g. from attacker-influenceable process names or container labels) are now prefixed with a quote before reaching spreadsheet apps.
+- Centralized process sort-key definitions into a shared `raven/core/sort.py` module, replacing duplicated sort maps in the exporters, `ProcessesPlugin`, and `ProcessTable`.
+- Added on-demand process re-sorting (`Collector.collect_processes` / `collect_processes_async`) so cycling the TUI's process sort (`p`) re-collects and re-truncates the list instead of re-sorting an already-truncated cached slice.
+- Added a `MonitorPlugin.close()` lifecycle hook and inflight-future tracking in `Collector`, so plugin resources are released on shutdown and a stalled plugin call is no longer resubmitted on every collection cycle.
+- Added keyboard focus trapping and ARIA attributes (`role="dialog"`, `aria-modal`, `aria-labelledby`) to the Web Dashboard authentication modal.
+- Added test coverage for background server orchestration, on-demand process sorting, plugin inflight tracking, config permission warnings, and export process-count consistency.
+
+### Changed
+
+- CSV and JSON exporters now derive their process list from the same `sorted_processes()` helper as the text exporter, instead of dumping the raw pre-truncation snapshot.
+- `ContainersPlugin` now reuses a single `ThreadPoolExecutor` across collection cycles instead of creating and tearing down a new pool every refresh interval.
+- Standardized TUI widget section headers (CPU, Memory, Disk, Network, etc.) through a shared `section_header` helper.
+- `NetworkWidget` now discards rate-tracking state for interfaces that disappear (e.g. VPN/tether disconnects), preventing unbounded growth over long-running TUI sessions.
+
+### Fixed
+
+- Fixed CSV and JSON export process counts being inconsistent with the text exporter's `max_display`/`sort_by`-truncated list.
+- Fixed a connection-pool leak in `RemoteCollector.close()` when called from within a running event loop; cleanup is now scheduled on the loop instead of dropped.
+
 ## [1.1.0] - 2026-08-12
 
 ### Added
