@@ -5,9 +5,13 @@ from __future__ import annotations
 from rich.text import Text
 from textual.widgets import Static
 
+from raven.core.limits import DASHBOARD_LIMITS
 from raven.core.models import SystemSnapshot
-from raven.core.utils import human_bytes, render_bar
-from raven.tui.widgets._common import section_header
+from raven.core.utils import human_bytes, truncate_path
+from raven.tui.theme import palette_for
+from raven.tui.widgets._common import more_row, section_header, themed_bar
+
+_MOUNT_WIDTH = 14
 
 
 class DiskWidget(Static):
@@ -15,20 +19,24 @@ class DiskWidget(Static):
 
     def update_data(self, snap: SystemSnapshot) -> None:
         disk = snap.disk
+        palette = palette_for(self)
         text = Text()
-        section_header(text, "Disk")
+        section_header(text, "Disk", palette)
 
-        for dp in disk.partitions[:6]:
-            mount_truncated = dp.mountpoint[:14]
-            text.append(f"  {mount_truncated:<14} ", style="")
-            text.append_text(render_bar(dp.percent, width=12))
-            text.append(f"  {human_bytes(dp.used)}/{human_bytes(dp.total)}\n", style="dim")
+        limit = DASHBOARD_LIMITS["partitions"]
+        for dp in disk.partitions[:limit]:
+            # Keep the tail: sibling volumes differ only at the end of the path.
+            mount = truncate_path(dp.mountpoint, _MOUNT_WIDTH)
+            text.append(f"  {mount:<{_MOUNT_WIDTH}} ")
+            text.append_text(themed_bar(dp.percent, 12, palette))
+            text.append(f"  {human_bytes(dp.used)}/{human_bytes(dp.total)}\n", style=palette.muted)
+        more_row(text, len(disk.partitions) - limit, "partitions", palette)
 
         # I/O
         io = disk.io
         text.append(
             f"  I/O  Read: {human_bytes(io.read_bytes)}  Write: {human_bytes(io.write_bytes)}\n",
-            style="dim",
+            style=palette.muted,
         )
 
         self.update(text)

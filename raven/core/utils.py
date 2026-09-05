@@ -28,25 +28,75 @@ def human_bytes_compact(n: int | float) -> str:
     return f"{n:.0f}PB"
 
 
-def color_for_percent(pct: float | None, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
-    """Return a colour name or hex string for a percentage value.
+# Severity levels, ordered least to most severe. These are the vocabulary the
+# whole app shares: ``level_for_*`` decides *which* level a reading is at, and
+# each surface maps the level to its own colours — fixed hexes for console
+# output (``color_for_*`` below), live theme colours for the TUI
+# (``raven.tui.theme``), CSS classes for the web dashboard (``.metric-*``).
+LEVEL_GOOD = "good"
+LEVEL_WARN = "warn"
+LEVEL_CRIT = "crit"
+
+# Level -> hex, for console output (``fetch`` and ``print``), which has no
+# theme to consult and so must pick one palette and keep it.
+_LEVEL_HEX: dict[str, str] = {
+    LEVEL_GOOD: "#00d2ff",
+    LEVEL_WARN: "#f59e0b",
+    LEVEL_CRIT: "#ef4444",
+}
+
+
+def level_for_percent(pct: float | None, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
+    """Return the severity level of a percentage value.
 
     Parameters
     ----------
     pct:
         The percentage (0–100) or None.
     thresholds:
-        ``(warn, crit)`` — below *warn* is cyan, below *crit* is amber,
-        above is red/coral.
+        ``(warn, crit)`` — below *warn* is good, below *crit* is warn,
+        above is crit.
     """
     if pct is None:
         pct = 0.0
     warn, crit = thresholds
     if pct < warn:
-        return "#00d2ff"
+        return LEVEL_GOOD
     elif pct < crit:
-        return "#f59e0b"
-    return "#ef4444"
+        return LEVEL_WARN
+    return LEVEL_CRIT
+
+
+def level_for_temp(
+    celsius: float,
+    high: float | None = None,
+    critical: float | None = None,
+) -> str:
+    """Return the severity level of a temperature reading.
+
+    Temperatures are °C, not percentages, so the sensor's own trip points are
+    used when psutil reports them; the 70/85 °C fallback only applies when it
+    does not.  Mirrors ``levelForTemp`` in the web dashboard.
+    """
+    if critical and celsius >= critical:
+        return LEVEL_CRIT
+    if high and celsius >= high:
+        return LEVEL_WARN
+    if not high and not critical:
+        if celsius >= 85:
+            return LEVEL_CRIT
+        if celsius >= 70:
+            return LEVEL_WARN
+    return LEVEL_GOOD
+
+
+def color_for_percent(pct: float | None, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
+    """Return a fixed hex colour for a percentage value.
+
+    For console output. The TUI wants colours that follow the active theme —
+    see ``raven.tui.theme.palette_for``.
+    """
+    return _LEVEL_HEX[level_for_percent(pct, thresholds)]
 
 
 def color_for_temp(
@@ -54,22 +104,11 @@ def color_for_temp(
     high: float | None = None,
     critical: float | None = None,
 ) -> str:
-    """Return a colour for a temperature reading.
+    """Return a fixed hex colour for a temperature reading.
 
-    Temperatures are °C, not percentages, so the sensor's own trip points are
-    used when psutil reports them; the 70/85 °C fallback only applies when it
-    does not.  Mirrors ``classForTemp`` in the web dashboard.
+    For console output; see ``color_for_percent`` on why the TUI differs.
     """
-    if critical and celsius >= critical:
-        return "#ef4444"
-    if high and celsius >= high:
-        return "#f59e0b"
-    if not high and not critical:
-        if celsius >= 85:
-            return "#ef4444"
-        if celsius >= 70:
-            return "#f59e0b"
-    return "#00d2ff"
+    return _LEVEL_HEX[level_for_temp(celsius, high, critical)]
 
 
 def text_sparkline(history) -> str:
@@ -97,6 +136,7 @@ def render_bar(
     bracketed: bool = False,
     filled_char: str = "━",
     unfilled_char: str = "─",
+    empty_color: str | None = None,
 ) -> rich.text.Text:
     """Render a sleek progress bar using Rich Text.
 
@@ -114,20 +154,42 @@ def render_bar(
         Character used for filled portion (default '━').
     unfilled_char:
         Character used for empty portion (default '─').
+    empty_color:
+        Colour for the unfilled portion and brackets, or None for Rich's
+        ``dim``. The TUI passes a theme colour here because ``dim`` is
+        near-invisible on a light surface.
     """
     safe_pct = 0.0 if pct is None else pct
     filled = int(width * safe_pct / 100)
     filled = max(0, min(filled, width))
     color = style_color or color_for_percent(safe_pct)
+    empty = empty_color or "dim"
     t = rich.text.Text()
     if bracketed:
-        t.append("[", style="dim")
+        t.append("[", style=empty)
     t.append(filled_char * filled, style=color)
-    t.append(unfilled_char * (width - filled), style="dim")
+    t.append(unfilled_char * (width - filled), style=empty)
     if bracketed:
-        t.append("]", style="dim")
+        t.append("]", style=empty)
     t.append(f" {safe_pct:5.1f}%", style=f"bold {color}")
     return t
+
+
+def truncate_path(path: str, width: int) -> str:
+    """Shorten *path* to *width* cells, keeping the end.
+
+    Mount paths share their prefix, so trimming the tail is what destroys the
+    distinguishing part: six APFS volumes all render as "/System/Volume".
+    Keeping the end and marking the cut with a leading "…" preserves the part
+    that actually identifies the mount.
+    """
+    if width <= 0:
+        return ""
+    if len(path) <= width:
+        return path
+    if width == 1:
+        return "…"
+    return "…" + path[-(width - 1) :]
 
 
 def serialize_model(obj: Any) -> Any:

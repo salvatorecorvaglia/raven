@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 
+from raven.core.limits import EXPORT_LIMITS
 from raven.core.models import SystemSnapshot
 from raven.core.utils import human_bytes, render_bar
 from raven.export.base import BaseExporter
@@ -53,7 +54,7 @@ class TextExporter(BaseExporter):
 
         # ── Disk ─────────────────────────────────────────────────────
         if show_all or "disk" in mods:
-            for dp in snapshot.disk.partitions[:8]:
+            for dp in snapshot.disk.partitions[: EXPORT_LIMITS["partitions"]]:
                 parts.append(
                     f"  {dp.mountpoint:<15} {render_bar(dp.percent, bracketed=True).plain}"
                     f"  {human_bytes(dp.used)} / {human_bytes(dp.total)}"
@@ -66,7 +67,7 @@ class TextExporter(BaseExporter):
 
         # ── Network ──────────────────────────────────────────────────
         if show_all or "network" in mods:
-            for iface in snapshot.network.interfaces[:6]:
+            for iface in snapshot.network.interfaces[: EXPORT_LIMITS["interfaces"]]:
                 addr_str = ", ".join(iface.addrs[:2]) if iface.addrs else "—"
                 parts.append(
                     f"  {iface.name:<12} ▲ {human_bytes(iface.bytes_sent)}"
@@ -98,11 +99,15 @@ class TextExporter(BaseExporter):
         if show_all or "sensors" in mods:
             if snapshot.sensors.temperatures:
                 temp_strs = [
-                    f"{t.label}: {t.current:.0f}°C" for t in snapshot.sensors.temperatures[:8]
+                    f"{t.label}: {t.current:.0f}°C"
+                    for t in snapshot.sensors.temperatures[: EXPORT_LIMITS["temperatures"]]
                 ]
                 parts.append(f"  Temps: {', '.join(temp_strs)}")
             if snapshot.sensors.fans:
-                fan_strs = [f"{f.label}: {f.current} RPM" for f in snapshot.sensors.fans[:4]]
+                fan_strs = [
+                    f"{f.label}: {f.current} RPM"
+                    for f in snapshot.sensors.fans[: EXPORT_LIMITS["fans"]]
+                ]
                 parts.append(f"  Fans: {', '.join(fan_strs)}")
             if snapshot.sensors.battery:
                 bat = snapshot.sensors.battery
@@ -116,7 +121,7 @@ class TextExporter(BaseExporter):
         if show_all or "containers" in mods:
             if snapshot.containers.containers:
                 parts.append("  Containers:")
-                for ct in snapshot.containers.containers[:10]:
+                for ct in snapshot.containers.containers[: EXPORT_LIMITS["containers"]]:
                     parts.append(f"    [{ct.runtime}] {ct.name:<25} {ct.status:<12} {ct.image}")
                 parts.append("")
 

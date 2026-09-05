@@ -8,8 +8,9 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import color_for_percent, render_bar, text_sparkline
-from raven.tui.widgets._common import section_header
+from raven.core.utils import text_sparkline
+from raven.tui.theme import palette_for
+from raven.tui.widgets._common import section_header, themed_bar
 
 
 class CpuWidget(Static):
@@ -25,19 +26,20 @@ class CpuWidget(Static):
         cpu = snap.cpu
         self._history.append(cpu.percent_overall)
 
+        palette = palette_for(self)
         text = Text()
-        section_header(text, "CPU")
+        section_header(text, "CPU", palette)
 
         # Overall bar
         text.append("  Overall  ")
-        text.append_text(render_bar(cpu.percent_overall, width=15))
+        text.append_text(themed_bar(cpu.percent_overall, 15, palette))
         text.append("\n")
 
         # History sparkline
         spark = text_sparkline(self._history)
         if spark:
             text.append("  History  ")
-            text.append(spark, style=color_for_percent(cpu.percent_overall))
+            text.append(spark, style=palette.for_percent(cpu.percent_overall))
             text.append("\n")
 
         # Per-core bars (compact: 2 or 4 per line depending on core count)
@@ -50,7 +52,7 @@ class CpuWidget(Static):
                 idx = i + j
                 if idx < len(cores):
                     line.append(f"C{idx:<2} ")
-                    line.append_text(render_bar(cores[idx], width=bar_width))
+                    line.append_text(themed_bar(cores[idx], bar_width, palette))
                     line.append("  ")
             text.append_text(line)
             text.append("\n")
@@ -64,6 +66,6 @@ class CpuWidget(Static):
                 f"Load: {cpu.load_avg_1:.2f} {cpu.load_avg_5:.2f} {cpu.load_avg_15:.2f}"
             )
         if info_parts:
-            text.append("  " + "  │  ".join(info_parts) + "\n", style="dim")
+            text.append("  " + "  │  ".join(info_parts) + "\n", style=palette.muted)
 
         self.update(text)

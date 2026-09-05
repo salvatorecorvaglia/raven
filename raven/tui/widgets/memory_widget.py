@@ -8,8 +8,9 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
-from raven.core.utils import color_for_percent, human_bytes, render_bar, text_sparkline
-from raven.tui.widgets._common import section_header
+from raven.core.utils import human_bytes, text_sparkline
+from raven.tui.theme import palette_for
+from raven.tui.widgets._common import section_header, themed_bar
 
 
 class MemoryWidget(Static):
@@ -24,31 +25,32 @@ class MemoryWidget(Static):
         mem = snap.memory
         self._history.append(mem.percent)
 
+        palette = palette_for(self)
         text = Text()
-        section_header(text, "Memory")
+        section_header(text, "Memory", palette)
 
         # RAM bar
         text.append("  RAM   ")
-        text.append_text(render_bar(mem.percent, width=20))
-        text.append(f"  {human_bytes(mem.used)} / {human_bytes(mem.total)}\n", style="dim")
+        text.append_text(themed_bar(mem.percent, 20, palette))
+        text.append(f"  {human_bytes(mem.used)} / {human_bytes(mem.total)}\n", style=palette.muted)
 
         # Swap bar
         if mem.swap_total > 0:
             text.append("  Swap  ")
-            text.append_text(render_bar(mem.swap_percent, width=20))
+            text.append_text(themed_bar(mem.swap_percent, 20, palette))
             text.append(
                 f"  {human_bytes(mem.swap_used)} / {human_bytes(mem.swap_total)}\n",
-                style="dim",
+                style=palette.muted,
             )
 
         # History sparkline
         spark = text_sparkline(self._history)
         if spark:
             text.append("  Trend ")
-            text.append(spark, style=color_for_percent(mem.percent))
+            text.append(spark, style=palette.for_percent(mem.percent))
             text.append("\n")
 
         # Available
-        text.append(f"  Available: {human_bytes(mem.available)}\n", style="dim")
+        text.append(f"  Available: {human_bytes(mem.available)}\n", style=palette.muted)
 
         self.update(text)

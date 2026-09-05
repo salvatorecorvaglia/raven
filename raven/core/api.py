@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from raven.config import RavenConfig
 from raven.core.collector import Collector
+from raven.core.limits import DASHBOARD_LIMITS
 from raven.core.utils import serialize_model as asdict
 
 log = logging.getLogger(__name__)
@@ -317,6 +318,10 @@ def create_base_app(
             # So the dashboard applies the same process limit as the TUI and
             # `raven print` rather than a hardcoded one.
             "max_display": config.processes.max_display,
+            # Same reason, for the variable-length lists: without these the web
+            # dashboard rendered every partition and interface while the TUI
+            # showed 5, so one host described itself two different ways.
+            "display_limits": dict(DASHBOARD_LIMITS),
         }
 
     return app

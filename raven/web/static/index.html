@@ -84,6 +84,7 @@
             <div class="card-body">
                 <canvas id="net-chart" height="120"></canvas>
                 <div id="net-interfaces" class="interface-list"></div>
+                <div class="more-note" id="net-interfaces-more" hidden></div>
             </div>
         </section>
 
@@ -94,6 +95,7 @@
             </div>
             <div class="card-body">
                 <div id="disk-partitions" class="partition-list"></div>
+                <div class="more-note" id="disk-partitions-more" hidden></div>
                 <div class="metric-row" id="disk-io">
                     <div class="metric"><span class="label">Read</span><span class="value" id="disk-read">—</span></div>
                     <div class="metric"><span class="label">Write</span><span class="value" id="disk-write">—</span></div>
@@ -108,7 +110,9 @@
             </div>
             <div class="card-body">
                 <div id="temp-list" class="sensor-list"></div>
+                <div class="more-note" id="temp-list-more" hidden></div>
                 <div id="fan-list" class="sensor-list"></div>
+                <div class="more-note" id="fan-list-more" hidden></div>
                 <div id="battery-info" class="sensor-list"></div>
             </div>
         </section>
@@ -121,6 +125,7 @@
             </div>
             <div class="card-body">
                 <div id="user-list" class="user-list"></div>
+                <div class="more-note" id="user-list-more" hidden></div>
             </div>
         </section>
 
@@ -132,6 +137,7 @@
             </div>
             <div class="card-body">
                 <div id="container-list" class="container-list"></div>
+                <div class="more-note" id="container-list-more" hidden></div>
             </div>
         </section>
 
@@ -148,9 +154,11 @@
                             <tr>
                                 <th data-sort="pid" tabindex="0" role="button" aria-label="Sort by PID">PID</th>
                                 <th data-sort="name" tabindex="0" role="button" aria-label="Sort by Name">Name</th>
-                                <th data-sort="username" tabindex="0" role="button" aria-label="Sort by User">User</th>
-                                <th data-sort="cpu_percent" tabindex="0" role="button" aria-label="Sort by CPU Percent">CPU%</th>
-                                <th data-sort="memory_percent" tabindex="0" role="button" aria-label="Sort by Memory Percent">MEM%</th>
+                                <th data-sort="user" tabindex="0" role="button" aria-label="Sort by User">User</th>
+                                <th data-sort="cpu" tabindex="0" role="button" aria-label="Sort by CPU Percent">CPU%</th>
+                                <th data-sort="memory" tabindex="0" role="button" aria-label="Sort by Memory Percent">MEM%</th>
+                                <th data-sort="rss" tabindex="0" role="button" aria-label="Sort by Resident Memory">RSS</th>
+                                <th data-sort="threads" tabindex="0" role="button" aria-label="Sort by Thread Count">Threads</th>
                                 <th>Status</th>
                             </tr>
                         </thead>

@@ -78,3 +78,8 @@ source = ["raven"]
 # Floor, not a target — raise it as coverage improves, never lower it.
 fail_under = 80
 show_missing = true
+
+[dependency-groups]
+dev = [
+    "ruff==0.16.6",
+]

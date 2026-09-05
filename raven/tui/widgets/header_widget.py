@@ -8,6 +8,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from raven.core.models import SystemSnapshot
+from raven.tui.theme import palette_for
 
 
 class HeaderWidget(Static):
@@ -18,12 +19,15 @@ class HeaderWidget(Static):
         uptime = str(datetime.timedelta(seconds=int(si.uptime_seconds)))
         now = datetime.datetime.now().strftime("%H:%M:%S")
 
+        palette = palette_for(self)
         text = Text()
-        text.append("  🐦‍⬛ RAVEN", style="bold bright_white")
-        text.append("  │  ", style="dim")
-        text.append(f"{si.hostname}", style="bold cyan")
-        text.append(f"  │  {si.os_name} {si.os_version} ({si.architecture})", style="")
-        text.append(f"  │  ⏱ {uptime}", style="")
-        text.append(f"  │  🕐 {now}", style="bold")
+        # Was `bold bright_white`, which sat at 1.44:1 on the light theme's
+        # #D8D8D8 surface — effectively invisible.
+        text.append("  🐦‍⬛ RAVEN", style=f"bold {palette.value}")
+        text.append("  │  ", style=palette.muted)
+        text.append(f"{si.hostname}", style=f"bold {palette.title}")
+        text.append(f"  │  {si.os_name} {si.os_version} ({si.architecture})", style=palette.value)
+        text.append(f"  │  ⏱ {uptime}", style=palette.value)
+        text.append(f"  │  🕐 {now}", style=f"bold {palette.value}")
 
         self.update(text)

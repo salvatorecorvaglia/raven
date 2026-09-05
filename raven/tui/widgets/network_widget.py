@@ -5,9 +5,11 @@ from __future__ import annotations
 from rich.text import Text
 from textual.widgets import Static
 
+from raven.core.limits import DASHBOARD_LIMITS
 from raven.core.models import SystemSnapshot
 from raven.core.utils import human_bytes
-from raven.tui.widgets._common import section_header
+from raven.tui.theme import palette_for
+from raven.tui.widgets._common import more_row, section_header
 
 
 class NetworkWidget(Static):
@@ -20,8 +22,9 @@ class NetworkWidget(Static):
 
     def update_data(self, snap: SystemSnapshot, refresh_interval: float = 2.0) -> None:
         net = snap.network
+        palette = palette_for(self)
         text = Text()
-        section_header(text, "Network")
+        section_header(text, "Network", palette)
 
         non_lo_interfaces = [i for i in net.interfaces if not i.name.startswith("lo")]
 
@@ -33,7 +36,8 @@ class NetworkWidget(Static):
             self._prev_sent.pop(stale, None)
             self._prev_recv.pop(stale, None)
 
-        for iface in non_lo_interfaces[:5]:
+        limit = DASHBOARD_LIMITS["interfaces"]
+        for iface in non_lo_interfaces[:limit]:
             # Calculate per-second rates
             prev_s = self._prev_sent.get(iface.name, iface.bytes_sent)
             prev_r = self._prev_recv.get(iface.name, iface.bytes_recv)
@@ -48,9 +52,10 @@ class NetworkWidget(Static):
 
             addr = iface.addrs[0] if iface.addrs else "—"
             text.append(f"  {iface.name:<10} ", style="bold")
-            text.append(f"▲ {human_bytes(rate_s)}/s ", style="cyan")
-            text.append(f"▼ {human_bytes(rate_r)}/s", style="green")
-            text.append(f"  {addr}\n", style="dim")
+            text.append(f"▲ {human_bytes(rate_s)}/s ", style=palette.title)
+            text.append(f"▼ {human_bytes(rate_r)}/s", style=palette.good)
+            text.append(f"  {addr}\n", style=palette.muted)
+        more_row(text, len(non_lo_interfaces) - limit, "interfaces", palette)
 
-        text.append(f"  Connections: {net.connections_count}\n", style="dim")
+        text.append(f"  Connections: {net.connections_count}\n", style=palette.muted)
         self.update(text)

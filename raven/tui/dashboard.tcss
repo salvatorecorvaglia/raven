@@ -11,9 +11,16 @@ Screen {
 
 /* ── Layout grid ────────────────────────────────────────────────────────── */
 
+/* grid-rows must be explicit. Without it every row takes an equal fraction of
+   the height, and since #raven-header is only 3 cells tall the rest of its row
+   is dead space — 8 blank cells on a 45-row terminal. Sizing the rows also
+   makes #process-panel's `height: 1fr` mean something: the process list is the
+   panel worth growing, so it takes the slack instead of splitting it evenly
+   with the fixed-content panels. */
 #dashboard {
     layout: grid;
     grid-size: 4 5;
+    grid-rows: 3 12 1fr 10 8;
     grid-gutter: 1;
     padding: 0 1;
     height: 1fr;
@@ -21,6 +28,7 @@ Screen {
 
 #dashboard.no-containers {
     grid-size: 4 4;
+    grid-rows: 3 12 1fr 10;
 }
 
 /* ── Header bar ─────────────────────────────────────────────────────────── */

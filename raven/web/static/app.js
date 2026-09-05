@@ -27,8 +27,23 @@
     let prevNetTime = 0;
     let prevIfaceData = {};
     let lastSnapshot = null;
-    let sortKey = "cpu_percent";
-    let sortAsc = false;
+    // Mirrors PROCESS_SORT_KEYS in raven/core/sort.py: same key names, same
+    // field mapping, same default direction. The table used to sort on raw
+    // field names with its own rules, so clicking "Name" here ordered
+    // differently from pressing `p` in the TUI on the same host.
+    const SORT_KEYS = {
+        pid: { field: "pid", descending: false },
+        name: { field: "name", descending: false },
+        user: { field: "username", descending: false },
+        cpu: { field: "cpu_percent", descending: true },
+        memory: { field: "memory_percent", descending: true },
+        rss: { field: "memory_rss", descending: true },
+        threads: { field: "num_threads", descending: true },
+    };
+    const DEFAULT_SORT_BY = "cpu";
+
+    let sortKey = DEFAULT_SORT_BY;
+    let sortAsc = !SORT_KEYS[DEFAULT_SORT_BY].descending;
     // null until /health answers; then the set of modules this agent monitors.
     let activeModules = null;
     let reconnectAttempts = 0;
@@ -37,6 +52,12 @@
     // Overridden from /health with the agent's processes.max_display, so the
     // dashboard, the TUI and `raven print` all show the same number of rows.
     let maxDisplay = 40;
+    // Overridden from /health with the agent's DASHBOARD_LIMITS, so the cards
+    // and the TUI panels truncate the same lists at the same point.
+    let displayLimits = {
+        partitions: 5, interfaces: 5, temperatures: 6,
+        fans: 4, containers: 8, users: 5,
+    };
 
     // Cards whose data comes from a single module, so a disabled module can be
     // labelled "not monitored" rather than rendering a misleading zero.
@@ -128,6 +149,19 @@
         return val.toFixed(1) + " " + units[i];
     }
 
+    // Matches human_bytes_compact() in raven/core/utils.py — the process table
+    // is dense enough that "83MB" reads better than "83.4 MB".
+    function humanBytesCompact(bytes) {
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        let i = 0;
+        let val = bytes;
+        while (Math.abs(val) >= 1024 && i < units.length - 1) {
+            val /= 1024;
+            i++;
+        }
+        return (val >= 1 ? val.toFixed(0) : val.toFixed(1)) + units[i];
+    }
+
     // Convert to rating
     function humanBytesRate(bytes) {
         return humanBytes(bytes) + "/s";
@@ -138,6 +172,21 @@
     function computeRate(current, previous, dtSeconds) {
         if (!(dtSeconds > 0.1)) return 0;
         return Math.max(0, (current - previous) / dtSeconds);
+    }
+
+    // Says how many rows a display limit hid. Lives in a sibling of the list,
+    // not inside it: the update functions compare container.children.length
+    // against the data length to decide whether to rebuild the rows.
+    function showMoreNote(listId, hidden, noun) {
+        const note = document.getElementById(listId + "-more");
+        if (!note) return;
+        if (hidden > 0) {
+            note.textContent = `+${hidden} more ${noun}`;
+            note.hidden = false;
+        } else {
+            note.textContent = "";
+            note.hidden = true;
+        }
     }
 
     function classForPercent(pct) {
@@ -411,13 +460,26 @@
         const net = snap.network || {};
         document.getElementById("net-connections").textContent = (net.connections_count || 0) + " conn";
 
-        const interfaces = (net.interfaces || []).filter((i) => !i.name.startsWith("lo"));
+        const allInterfaces = net.interfaces || [];
+        const interfaces = allInterfaces
+            .filter((i) => !i.name.startsWith("lo"))
+            .slice(0, displayLimits.interfaces);
         const container = document.getElementById("net-interfaces");
+
+        // Forget interfaces that have gone away, or VPN/tether churn grows this
+        // map for the life of the tab. Ported from NetworkWidget, which already
+        // does exactly this.
+        const liveNames = new Set(allInterfaces.map((i) => i.name));
+        Object.keys(prevIfaceData).forEach((name) => {
+            if (!liveNames.has(name)) delete prevIfaceData[name];
+        });
 
         // Calculate total rates
         let totalSent = 0;
         let totalRecv = 0;
-        interfaces.forEach((iface) => {
+        // Every non-loopback interface, not just the listed ones: the chart is
+        // host throughput, so truncating the list must not change it.
+        allInterfaces.filter((i) => !i.name.startsWith("lo")).forEach((iface) => {
             totalSent += iface.bytes_sent || 0;
             totalRecv += iface.bytes_recv || 0;
         });
@@ -486,11 +548,14 @@
             rateEl.textContent = `▲ ${humanBytesRate(rateSent)}  ▼ ${humanBytesRate(rateRecv)}`;
             addrEl.textContent = addr;
         });
+
+        const shownNonLo = allInterfaces.filter((i) => !i.name.startsWith("lo")).length;
+        showMoreNote("net-interfaces", shownNonLo - interfaces.length, "interfaces");
     }
 
     function updateDisk(snap) {
         const disk = snap.disk || {};
-        const partitions = disk.partitions || [];
+        const partitions = (disk.partitions || []).slice(0, displayLimits.partitions);
         const container = document.getElementById("disk-partitions");
 
         // Partitions list - update in-place
@@ -527,6 +592,10 @@
             sizeEl.textContent = `${humanBytes(p.used || 0)} / ${humanBytes(p.total || 0)}`;
         });
 
+        showMoreNote(
+            "disk-partitions", (disk.partitions || []).length - partitions.length, "partitions"
+        );
+
         const io = disk.io || {};
         document.getElementById("disk-read").textContent = humanBytes(io.read_bytes || 0);
         document.getElementById("disk-write").textContent = humanBytes(io.write_bytes || 0);
@@ -536,7 +605,7 @@
         const sensors = snap.sensors || {};
 
         // Temperatures
-        const temps = sensors.temperatures || [];
+        const temps = (sensors.temperatures || []).slice(0, displayLimits.temperatures);
         const tempContainer = document.getElementById("temp-list");
         if (temps.length) {
             let header = tempContainer.querySelector(".sensor-section-header");
@@ -563,9 +632,12 @@
         } else {
             tempContainer.innerHTML = "";
         }
+        showMoreNote(
+            "temp-list", (sensors.temperatures || []).length - temps.length, "sensors"
+        );
 
         // Fans
-        const fans = sensors.fans || [];
+        const fans = (sensors.fans || []).slice(0, displayLimits.fans);
         const fanContainer = document.getElementById("fan-list");
         if (fans.length) {
             let header = fanContainer.querySelector(".sensor-section-header");
@@ -591,6 +663,7 @@
         } else {
             fanContainer.innerHTML = "";
         }
+        showMoreNote("fan-list", (sensors.fans || []).length - fans.length, "fans");
 
         // Battery
         const bat = sensors.battery;
@@ -609,9 +682,16 @@
             const valEl = row.querySelector(".sensor-value");
 
             labelEl.textContent = bat.power_plugged ? "⚡ Plugged" : "🔋 Battery";
-            valEl.textContent = (bat.percent || 0).toFixed(0) + "%";
-            // Same metric-* scale as every other readout (was temp-*).
-            valEl.className = "sensor-value " + (bat.percent > 20 ? "metric-ok" : "metric-crit");
+            // An unknown charge is not a flat battery; the TUI and `fetch` both
+            // print "Unknown" rather than 0%.
+            if (bat.percent == null) {
+                valEl.textContent = "Unknown";
+                valEl.className = "sensor-value";
+            } else {
+                valEl.textContent = bat.percent.toFixed(0) + "%";
+                valEl.className =
+                    "sensor-value " + (bat.percent > 20 ? "metric-ok" : "metric-crit");
+            }
         } else {
             batContainer.innerHTML = "";
         }
@@ -621,11 +701,12 @@
         const users = snap.users || [];
         document.getElementById("user-count").textContent = users.length;
         const seen = new Set();
-        const filteredUsers = users.filter((u) => {
+        const uniqueUsers = users.filter((u) => {
             if (seen.has(u.name)) return false;
             seen.add(u.name);
             return true;
         });
+        const filteredUsers = uniqueUsers.slice(0, displayLimits.users);
 
         const container = document.getElementById("user-list");
         if (container.children.length !== filteredUsers.length) {
@@ -647,18 +728,32 @@
             nameEl.textContent = u.name;
             termEl.textContent = u.terminal || "—";
         });
+
+        showMoreNote("user-list", uniqueUsers.length - filteredUsers.length, "users");
     }
 
     function updateContainers(snap) {
         const ct = snap.containers || {};
         const containers = ct.containers || [];
+        const card = document.getElementById("containers-card");
+
+        // No runtime installed is not "zero containers" — the TUI hides the
+        // panel outright, so say "not available" rather than showing an empty
+        // list that reads as a healthy host with nothing running.
+        const runtimeAvailable = Boolean(ct.docker_available || ct.lxc_available);
+        if (card) card.classList.toggle("runtime-unavailable", !runtimeAvailable);
+        if (!runtimeAvailable) {
+            document.getElementById("container-count").textContent = "—";
+            document.getElementById("container-list").innerHTML =
+                '<div class="empty-note">No container runtime detected</div>';
+            return;
+        }
         const running = containers.filter((c) => c.status === "running" || c.status === "up").length;
         document.getElementById("container-count").textContent = running + " / " + containers.length;
 
         const container = document.getElementById("container-list");
         if (containers.length) {
-            const displayLimit = 10;
-            const showList = containers.slice(0, displayLimit);
+            const showList = containers.slice(0, displayLimits.containers);
 
             if (container.children.length !== showList.length || container.querySelector(".no-containers")) {
                 container.innerHTML = showList
@@ -688,8 +783,10 @@
                 statusEl.className = `container-status ${isRunning ? "status-running" : "status-stopped"}`;
                 imageEl.textContent = c.image;
             });
+            showMoreNote("container-list", containers.length - showList.length, "containers");
         } else {
-            container.innerHTML = '<div class="no-containers" style="color:var(--text-dim);font-size:0.8rem;padding:0.5rem">No containers detected</div>';
+            container.innerHTML = '<div class="no-containers empty-note">No containers detected</div>';
+            showMoreNote("container-list", 0, "containers");
         }
     }
 
@@ -699,12 +796,18 @@
         const total = snap.process_count || procs.length;
         document.getElementById("proc-count").textContent = total + " processes";
 
-        // Sort
+        // Sort. sort_processes() lower-cases before comparing names, so this
+        // must too or the two dashboards interleave differently.
+        const spec = SORT_KEYS[sortKey] || SORT_KEYS[DEFAULT_SORT_BY];
+        const direction = sortAsc ? 1 : -1;
         const sorted = [...procs].sort((a, b) => {
-            const va = a[sortKey] || 0;
-            const vb = b[sortKey] || 0;
-            if (typeof va === "string") return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-            return sortAsc ? va - vb : vb - va;
+            const va = a[spec.field];
+            const vb = b[spec.field];
+            if (typeof va === "string" || typeof vb === "string") {
+                return direction * String(va || "").toLowerCase()
+                    .localeCompare(String(vb || "").toLowerCase());
+            }
+            return direction * ((va || 0) - (vb || 0));
         });
 
         // Update header sort indicators
@@ -736,6 +839,8 @@
                         <td class="proc-user"></td>
                         <td class="proc-cpu"></td>
                         <td class="proc-mem"></td>
+                        <td class="proc-rss"></td>
+                        <td class="proc-threads"></td>
                         <td class="proc-status"></td>
                     </tr>`;
                 })
@@ -749,6 +854,8 @@
             const userEl = row.querySelector(".proc-user");
             const cpuEl = row.querySelector(".proc-cpu");
             const memEl = row.querySelector(".proc-mem");
+            const rssEl = row.querySelector(".proc-rss");
+            const threadsEl = row.querySelector(".proc-threads");
             const statusEl = row.querySelector(".proc-status");
 
             const cpuPct = p.cpu_percent || 0;
@@ -764,6 +871,9 @@
             memEl.textContent = memPct.toFixed(1);
             memEl.className = "proc-mem " + classForPercent(memPct);
 
+            rssEl.textContent = humanBytesCompact(p.memory_rss || 0);
+            threadsEl.textContent = p.num_threads || 0;
+
             statusEl.textContent = (p.status || "").substring(0, 10);
         });
     }
@@ -777,7 +887,9 @@
             sortAsc = !sortAsc;
         } else {
             sortKey = key;
-            sortAsc = false;
+            // PID and Name ascend by default, the numeric columns descend —
+            // same as PROCESS_SORT_KEYS rather than always descending.
+            sortAsc = !(SORT_KEYS[key] || SORT_KEYS[DEFAULT_SORT_BY]).descending;
         }
         if (lastSnapshot) {
             updateProcesses(lastSnapshot);
@@ -909,6 +1021,9 @@
                         maxDisplay = Number(d.max_display);
                         if (lastSnapshot) updateProcesses(lastSnapshot);
                     }
+                    if (d.display_limits) {
+                        displayLimits = { ...displayLimits, ...d.display_limits };
+                    }
                     // Server default only applies when the user has no saved choice.
                     if (!localStorage.getItem("theme") && d.theme === "light") {
                         document.body.classList.add("light-theme");
@@ -977,6 +1092,18 @@
         const gridColor = isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.04)";
         const tickColor = isLight ? "#64748b" : "#5a6785";
 
+        // The dataset lines were fixed dark-theme colours, so #00d2ff sat at
+        // roughly 1.3:1 on the light card while the axes around it flipped.
+        const lineColors = isLight
+            ? { cpu: "#0369a1", mem: "#7c3aed", sent: "#0369a1", recv: "#0f766e" }
+            : { cpu: "#00d2ff", mem: "#c084fc", sent: "#00d2ff", recv: "#64ffda" };
+        if (cpuChart) cpuChart.data.datasets[0].borderColor = lineColors.cpu;
+        if (memChart) memChart.data.datasets[0].borderColor = lineColors.mem;
+        if (netChart) {
+            netChart.data.datasets[0].borderColor = lineColors.sent;
+            netChart.data.datasets[1].borderColor = lineColors.recv;
+        }
+
         [cpuChart, memChart, netChart].forEach((chart) => {
             if (!chart) return;
             chart.options.scales.y.grid.color = gridColor;
@@ -984,6 +1111,9 @@
             chart.options.plugins.tooltip.backgroundColor = isLight ? "rgba(255, 255, 255, 0.95)" : "rgba(20, 27, 45, 0.95)";
             chart.options.plugins.tooltip.bodyColor = isLight ? "#1e293b" : "#e6f1ff";
             chart.options.plugins.tooltip.borderColor = isLight ? "rgba(0, 0, 0, 0.1)" : "rgba(0, 210, 255, 0.3)";
+            if (chart.options.plugins.legend.labels) {
+                chart.options.plugins.legend.labels.color = tickColor;
+            }
             chart.update();
         });
     }

@@ -5,8 +5,10 @@ from __future__ import annotations
 from rich.text import Text
 from textual.widgets import Static
 
+from raven.core.limits import DASHBOARD_LIMITS
 from raven.core.models import SystemSnapshot
-from raven.tui.widgets._common import section_header
+from raven.tui.theme import palette_for
+from raven.tui.widgets._common import more_row, section_header
 
 
 class ContainerWidget(Static):
@@ -30,22 +32,25 @@ class ContainerWidget(Static):
             except Exception:
                 pass
 
+        palette = palette_for(self)
         text = Text()
-        section_header(text, "Containers")
+        section_header(text, "Containers", palette)
 
         if not containers.containers:
-            text.append("  No containers detected\n", style="dim")
+            text.append("  No containers detected\n", style=palette.muted)
             self.update(text)
             return
 
         running = sum(1 for c in containers.containers if c.status in ("running", "up"))
-        text.append(f"  {running}/{len(containers.containers)} running\n\n", style="")
+        text.append(f"  {running}/{len(containers.containers)} running\n\n")
 
-        for c in containers.containers[:8]:
-            status_color = "green" if c.status in ("running", "up") else "yellow"
-            text.append(f"  [{c.runtime}] ", style="dim")
+        limit = DASHBOARD_LIMITS["containers"]
+        for c in containers.containers[:limit]:
+            status_color = palette.good if c.status in ("running", "up") else palette.warn
+            text.append(f"  [{c.runtime}] ", style=palette.muted)
             text.append(f"{c.name[:20]:<22}", style="bold")
             text.append(f"{c.status:<12}", style=status_color)
-            text.append(f"{c.image[:25]}\n", style="dim")
+            text.append(f"{c.image[:25]}\n", style=palette.muted)
+        more_row(text, len(containers.containers) - limit, "containers", palette)
 
         self.update(text)

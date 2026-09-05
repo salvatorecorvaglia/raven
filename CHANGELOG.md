@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `raven/tui/theme.py`, resolving Textual design tokens (`$text-primary`, `$text-success`, …) into concrete colours for dashboard widgets. Rich `Text` styles cannot name a token — `Static.update()` parses them through Rich's colour parser — so the token classes in `dashboard.tcss` could never have applied to inline spans.
+- Added `raven/core/limits.py` as the single source of truth for how many rows each surface shows (`DASHBOARD_LIMITS` for the TUI panels and web cards, `EXPORT_LIMITS` for `raven print`), replacing inline slice caps in the widgets and the text exporter.
+- Added `display_limits` to the `/health` payload, so the Web Dashboard truncates the same lists at the same point as the TUI (mirroring how `max_display` is already shared).
+- Added `level_for_percent` and `level_for_temp` to `raven/core/utils.py`, separating threshold logic from colour choice so the TUI, console output, and web dashboard can share thresholds while rendering them differently.
+- Added `truncate_path` to `raven/core/utils.py`, truncating from the left so sibling mount paths stay distinguishable.
+- Added RSS and Threads columns to the Web Dashboard process table, matching the columns the TUI has always shown.
+- Added "+N more" notices to the partition, interface, temperature, fan, container, and user lists in the TUI and Web Dashboard, so a capped list reads as capped rather than complete.
+- Added an `empty_color` parameter to `render_bar`, letting the TUI colour a bar's unfilled half from the active theme instead of Rich's `dim`.
+- Added `:focus-visible` outlines for the Web Dashboard's sortable table headers, theme toggle, primary button, and auth inputs.
+- Added TUI regression tests covering dashboard grid geometry, panel content fitting its grid cell, and widget colours changing with the theme.
+
+### Changed
+
+- TUI widgets now take every colour from the active theme rather than hardcoded literals (`bold cyan`, `bright_white`, `#00d2ff`), via the new `section_header`/`themed_bar` helpers.
+- Web Dashboard surface colours painted over a themed background (headers, table headers, progress tracks, row tints, toasts, inputs) now route through named tokens (`--header-bg`, `--th-bg`, `--track-bg`, `--row-tint`, …) declared in both themes.
+- `--accent-cyan` darkens to `#0369a1` in the light theme only, where it carries small uppercase text that `#0284c7` left at 3.4:1.
+- Web Dashboard process sorting now follows `raven/core/sort.py`: the same key names, field mapping, case-insensitive name comparison, and per-key default direction (PID and Name ascend; CPU, MEM, RSS, and Threads descend) instead of always starting descending.
+- Chart line colours in the Web Dashboard now follow the theme, rather than staying dark-theme colours while their axes flipped.
+- The Web Dashboard containers card now reports "No container runtime detected" when neither Docker nor LXC is available, instead of "No containers detected" — which read as a healthy host running nothing. Matches `ContainerWidget`, which hides its panel outright.
+- An unknown battery charge now shows as "Unknown" in the Web Dashboard rather than a critical-coloured 0%, matching the TUI and `raven fetch`.
+- `html { font-size }` is now `87.5%` rather than a fixed `14px`, preserving the intended density while still scaling with the reader's browser font-size setting (WCAG 1.4.4).
+- Dimming of the Web Dashboard during a dropped connection softened from `0.65` to `0.85`: stale values are still worth reading.
+- `cursor: pointer` on Web Dashboard table headers is now scoped to `th[data-sort]`, so the unsortable Status column no longer advertises a click it does not handle.
+- Removed the never-applied `.card-small` and `.updating` CSS rules, and extended the card entry-animation stagger to cover all eight cards rather than five.
+
+### Fixed
+
+- Fixed the TUI dashboard reserving a full grid row for its 3-cell-tall header. `dashboard.tcss` declared `grid-size: 4 5` with no `grid-rows`, so every row took an equal share of the height, leaving 8 blank cells above the CPU panel on a 45-row terminal.
+- Fixed `#process-panel`'s `height: 1fr` having no effect, since its grid row was already a fixed fraction: the process list now absorbs the leftover height instead of splitting it evenly with the fixed-content panels (10 to 16 rows at 140x45).
+- Fixed the TUI light theme being effectively unreadable. Widget colours were dark-theme literals, leaving header text at 1.44:1 and progress bars at 1.26:1 against `textual-light`'s surface; every rendered span now clears 3:1 in both themes.
+- Fixed Web Dashboard rules that painted literal dark values no light-theme override touched: the page header and table header stayed near-black (putting their text at 2.52:1 and 3.47:1), and every progress track and row tint became white-on-white.
+- Fixed Web Dashboard process table zebra striping being set at `rgba(255, 255, 255, 0.01)`, an alpha low enough to render as nothing in either theme.
+- Fixed `#users-card` overriding its own responsive rules: the rule sat after the media queries, and since a media query adds no specificity it won its span back at every width — forcing an implicit second column into the single-column grid below 640px.
+- Fixed unbounded growth of the Web Dashboard's per-interface rate baselines as VPN and tether interfaces come and go, the same leak `NetworkWidget` already prunes.
+- Fixed `DiskWidget` truncating mount points from the right, which rendered sibling APFS volumes as several identical `/System/Volume` rows.
+
 ## [1.2.0] - 2026-08-25
 
 ### Added

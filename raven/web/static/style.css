@@ -23,6 +23,26 @@
         'Helvetica Neue', Arial, sans-serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Mono',
         Menlo, Consolas, 'Liberation Mono', monospace;
+    /* Surfaces layered *over* a card or the page. These were literal
+       rgba(255,255,255,…) / rgba(10,14,23,…) values, which silently assume the
+       ground underneath is dark — so in light mode every track and row tint
+       became white-on-white and the header stayed near-black. Anything painted
+       on top of a themed surface belongs here, not inline. */
+    --header-bg: rgba(10, 14, 23, 0.95);
+    --th-bg: rgba(30, 42, 69, 0.95);
+    --toast-bg: rgba(20, 27, 45, 0.95);
+    --track-bg: rgba(255, 255, 255, 0.06);
+    --row-tint: rgba(255, 255, 255, 0.02);
+    --row-stripe: rgba(255, 255, 255, 0.035);
+    --row-tint-hover: rgba(255, 255, 255, 0.05);
+    --row-border: rgba(255, 255, 255, 0.06);
+    --input-bg: rgba(255, 255, 255, 0.03);
+    --input-bg-focus: rgba(255, 255, 255, 0.05);
+    --shimmer-hi: rgba(255, 255, 255, 0.05);
+    --btn-ghost-hover: rgba(255, 255, 255, 0.08);
+    --card-hover-border: rgba(0, 210, 255, 0.2);
+    --card-hover-shadow: rgba(0, 210, 255, 0.08);
+
     --radius: 12px;
     --radius-sm: 8px;
     --glass-blur: 12px;
@@ -37,11 +57,29 @@ body.light-theme {
     --text-primary: #1e293b;
     --text-secondary: #475569;
     --text-dim: #64748b;
-    --accent-cyan: #0284c7;
+    /* Darker than the dark theme's #00d2ff counterpart because this one has to
+       carry small uppercase text (card headings, table headers) on a light
+       ground: #0284c7 only reached 3.4:1 there. */
+    --accent-cyan: #0369a1;
     --accent-green: #10b981;
     --accent-amber: #f59e0b;
     --accent-red: #ef4444;
     --accent-purple: #8b5cf6;
+    /* Same roles, inverted: dark ink over a light ground. */
+    --header-bg: rgba(255, 255, 255, 0.95);
+    --th-bg: #e6ecf3;
+    --toast-bg: rgba(255, 255, 255, 0.97);
+    --track-bg: rgba(15, 23, 42, 0.10);
+    --row-tint: rgba(15, 23, 42, 0.025);
+    --row-stripe: rgba(15, 23, 42, 0.035);
+    --row-tint-hover: rgba(15, 23, 42, 0.06);
+    --row-border: rgba(15, 23, 42, 0.08);
+    --input-bg: rgba(15, 23, 42, 0.03);
+    --input-bg-focus: rgba(15, 23, 42, 0.05);
+    --shimmer-hi: rgba(15, 23, 42, 0.05);
+    --btn-ghost-hover: rgba(15, 23, 42, 0.06);
+    --card-hover-border: rgba(2, 132, 199, 0.35);
+    --card-hover-shadow: rgba(15, 23, 42, 0.10);
     background-image:
         radial-gradient(ellipse at 20% 50%, rgba(2, 132, 199, 0.05) 0%, transparent 50%),
         radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
@@ -55,7 +93,11 @@ body.light-theme {
 }
 
 html {
-    font-size: 14px;
+    /* 87.5% of the user's preferred size, not a hard 14px: the sheet's rem
+       scale was authored against 14px, and a fixed px root silently discards a
+       reader's browser font-size setting (WCAG 1.4.4). A percentage keeps the
+       intended density while still scaling with that preference. */
+    font-size: 87.5%;
     scroll-behavior: smooth;
 }
 
@@ -76,7 +118,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1.5rem;
-    background: rgba(10, 14, 23, 0.95);
+    background: var(--header-bg);
     border-bottom: 1px solid var(--border-color);
     backdrop-filter: blur(var(--glass-blur));
     position: sticky;
@@ -152,17 +194,13 @@ body {
 
 .card:hover {
     background: var(--bg-card-hover);
-    border-color: rgba(0, 210, 255, 0.2);
+    border-color: var(--card-hover-border);
     transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(0, 210, 255, 0.08);
+    box-shadow: 0 8px 32px var(--card-hover-shadow);
 }
 
 .card-wide {
     grid-column: span 4;
-}
-
-.card-small {
-    grid-column: span 1;
 }
 
 #cpu-card,
@@ -183,6 +221,13 @@ body {
 }
 
 #containers-card {
+    grid-column: span 2;
+}
+
+/* Must stay above the media queries: a media query adds no specificity, so
+   this rule sitting after them (as it used to) won its span back at every
+   width and broke both breakpoints. */
+#users-card {
     grid-column: span 2;
 }
 
@@ -261,7 +306,7 @@ body {
 .progress-bar {
     flex: 1;
     height: 6px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--track-bg);
     border-radius: 4px;
     overflow: hidden;
 }
@@ -304,7 +349,7 @@ body {
 
 .core-bar-track {
     height: 4px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--track-bg);
     border-radius: 2px;
     overflow: hidden;
 }
@@ -338,7 +383,7 @@ body {
     justify-content: space-between;
     gap: 0.6rem;
     padding: 0.3rem 0.5rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--row-tint);
     border-radius: var(--radius-sm);
     font-size: 0.8rem;
     font-family: var(--font-mono);
@@ -349,7 +394,7 @@ body {
 .partition-row:hover,
 .sensor-row:hover,
 .container-row:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--row-tint-hover);
 }
 
 .iface-name,
@@ -395,7 +440,7 @@ body {
 .partition-bar {
     width: 80px;
     height: 4px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--track-bg);
     border-radius: 2px;
     overflow: hidden;
 }
@@ -493,9 +538,8 @@ body {
     text-align: left;
     font-weight: 600;
     color: var(--accent-cyan);
-    background: rgba(30, 42, 69, 0.95);
+    background: var(--th-bg);
     border-bottom: 1px solid var(--border-color);
-    cursor: pointer;
     text-transform: uppercase;
     font-size: 0.7rem;
     letter-spacing: 0.05em;
@@ -503,13 +547,18 @@ body {
     transition: var(--transition);
 }
 
-#process-table th:hover {
+/* "Status" has no data-sort, so it must not advertise a click. */
+#process-table th[data-sort] {
+    cursor: pointer;
+}
+
+#process-table th[data-sort]:hover {
     color: var(--text-primary);
 }
 
 #process-table td {
     padding: 0.35rem 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--row-border);
     color: var(--text-secondary);
     transition: var(--transition);
 }
@@ -520,12 +569,26 @@ body {
 }
 
 #process-table tbody tr:hover td {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--row-tint-hover);
     color: var(--text-primary);
 }
 
 #process-table tbody tr:nth-child(even) td {
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--row-stripe);
+}
+
+/* ── Focus ──────────────────────────────────────────────────────────────────
+   The sortable headers are the only tabbable elements in the dashboard body,
+   and the auth input clears its outline, so without this a keyboard user has
+   nothing to follow. :focus-visible keeps mouse clicks from drawing a ring. */
+#process-table th[data-sort]:focus-visible,
+.theme-toggle-btn:focus-visible,
+.btn-primary:focus-visible,
+#auth-form input:focus-visible,
+.auth-remember input:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+    border-radius: 3px;
 }
 
 /* ── Charts ─────────────────────────────────────────────────────────────── */
@@ -565,13 +628,11 @@ canvas {
 .card:nth-child(4) { animation-delay: 0.15s; }
 .card:nth-child(5) { animation-delay: 0.20s; }
 .card:nth-child(6) { animation-delay: 0.25s; }
+.card:nth-child(7) { animation-delay: 0.30s; }
+.card:nth-child(8) { animation-delay: 0.35s; }
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
-}
-
-.updating {
-    animation: pulse 0.3s ease;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
@@ -597,7 +658,8 @@ canvas {
     #dashboard {
         grid-template-columns: 1fr;
     }
-    .card, .card-wide, #cpu-card, #memory-card, #network-card, #containers-card {
+    .card, .card-wide, #cpu-card, #memory-card, #network-card, #containers-card,
+    #users-card, #disk-card, #sensors-card {
         grid-column: span 1;
     }
     #main-header {
@@ -634,7 +696,10 @@ canvas {
 
 /* ── Connection toast and dimming ── */
 body.disconnected #dashboard {
-    opacity: 0.65;
+    /* Only a light dim. The values are stale, not meaningless, and this is
+       exactly when someone is squinting at them — 0.65 dropped every label
+       below its contrast floor. The badge and toast carry the actual status. */
+    opacity: 0.85;
     transition: opacity 0.3s ease;
 }
 body.disconnected::after {
@@ -642,7 +707,7 @@ body.disconnected::after {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    background: rgba(20, 27, 45, 0.95);
+    background: var(--toast-bg);
     border: 1px solid var(--accent-red);
     color: var(--accent-red);
     padding: 0.75rem 1.25rem;
@@ -666,7 +731,7 @@ body.loading .sensor-list,
 body.loading .user-list,
 body.loading .container-list {
     color: transparent !important;
-    background: linear-gradient(90deg, var(--border-color) 25%, rgba(255,255,255,0.05) 50%, var(--border-color) 75%) !important;
+    background: linear-gradient(90deg, var(--border-color) 25%, var(--shimmer-hi) 50%, var(--border-color) 75%) !important;
     background-size: 200% 100% !important;
     animation: loading-pulse 1.5s infinite !important;
     border-radius: 4px;
@@ -674,11 +739,6 @@ body.loading .container-list {
 @keyframes loading-pulse {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
-}
-
-/* ── Users Card layout fix ── */
-#users-card {
-    grid-column: span 2;
 }
 
 /* ── Theme Toggle Button ────────────────────────────────────────────────── */
@@ -698,7 +758,7 @@ body.loading .container-list {
 }
 
 .theme-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--btn-ghost-hover);
     color: var(--accent-cyan);
     transform: scale(1.1) rotate(15deg);
 }
@@ -759,7 +819,7 @@ body.light-theme .theme-toggle-btn:hover {
 #auth-form input[type="password"] {
     width: 100%;
     padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--input-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
@@ -772,8 +832,8 @@ body.light-theme .theme-toggle-btn:hover {
 
 #auth-form input[type="password"]:focus {
     border-color: var(--accent-cyan);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 0 10px rgba(0, 210, 255, 0.25);
+    background: var(--input-bg-focus);
+    box-shadow: 0 0 10px var(--card-hover-border);
 }
 
 .btn-primary {
@@ -826,6 +886,20 @@ body.light-theme .btn-primary {
 }
 
 .card.module-disabled .card-value {
+    visibility: hidden;
+}
+
+/* ── Truncation notice + empty states ─────────────────────────────────────
+   A capped list has to say it was capped, or the card reads as the whole
+   picture. Mirrors the TUI's "+N more" row. */
+.more-note,
+.empty-note {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    padding: 0.3rem 0.5rem;
+}
+
+.card.runtime-unavailable .card-value {
     visibility: hidden;
 }
 
