@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-05
+
 ### Added
 
 - Added `raven/tui/theme.py`, resolving Textual design tokens (`$text-primary`, `$text-success`, …) into concrete colours for dashboard widgets. Rich `Text` styles cannot name a token — `Static.update()` parses them through Rich's colour parser — so the token classes in `dashboard.tcss` could never have applied to inline spans.
