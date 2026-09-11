@@ -8,13 +8,13 @@
 
 ## ✨ Features
 
-- 🖥 **Interactive TUI Dashboard**: A beautiful terminal dashboard powered by [Textual](https://github.com/Textualize/textual). Inspect CPU, memory, disk, network, active processes, users, sensors, and containers.
-- 🌐 **Modern Web Dashboard**: A real-time web interface powered by FastAPI and WebSockets. Features vendorized web assets for 100% offline/air-gapped operation, light/dark theme persistence, an accessible (ARIA, keyboard focus-trapped) authentication modal, secure API key authentication with XOR obfuscation for client-side storage, and a smooth user experience.
-- 📡 **Remote Monitoring Agent**: Run Raven as a remote server agent (`serve` mode) and fetch metrics securely via `RemoteCollector` over HTTP/WebSockets from a centralized Raven instance.
-- 🚀 **Quick Summary (`fetch`)**: A quick, `neofetch`-style console summary of your system's hardware, OS, and current utilization.
-- 📊 **Structured Exports (`print`)**: Print snapshots of system metrics to stdout in **Text**, **CSV**, or **JSON** formats, ideal for scripting, integrations, or cron jobs.
-- 📦 **Container Support**: Native monitoring for Docker and LXC containers (memory, CPU, status, and metadata).
-- 🔒 **Security-First**: Support for timing-attack resistant API key authentication, `Referrer-Policy: no-referrer` header protection, safe/clean connection closures, CSV export formula-injection sanitization, and warnings for overly permissive config files holding a plaintext API key.
+- 🖥 **Interactive TUI Dashboard**: A beautiful terminal dashboard powered by [Textual](https://github.com/Textualize/textual). Inspect CPU, memory, disk, network, active processes, users, sensors, and containers. Supports instant runtime theme toggling (`t` key: dark/light), dynamic process re-sorting (`p` key), force refresh (`r` key), and clear visual stale-state indicators during collection hiccups.
+- 🌐 **Modern Web Dashboard**: A real-time browser interface powered by FastAPI and WebSockets via a high-performance, capped `BroadcastHub`. Features 100% offline/air-gapped vendorized assets, persistent light/dark themes, dynamic thresholds and process ranking matching agent config, snapshot payload wire trimming (~70% payload reduction), an accessible (ARIA, keyboard focus-trapped) authentication modal with XOR obfuscation for client-side storage, and reconnection backoff with manual retry.
+- 📡 **Remote Monitoring Agent**: Run Raven as a remote server agent (`serve` mode) and monitor hosts securely via `RemoteCollector` over HTTP/WebSockets from a centralized Raven instance, or fetch console summaries remotely.
+- 🚀 **Quick Summary (`fetch`)**: A quick, `neofetch`-style console summary of system hardware, OS, and resource utilization, available locally or queried from a remote agent (`raven --remote HOST:PORT fetch`).
+- 📊 **Structured Exports (`print`)**: Print snapshots of system metrics to stdout in **Text**, **CSV**, or **JSON** formats with module name validation, ideal for scripting, integrations, or cron jobs.
+- 📦 **Container Support**: Native monitoring for Docker and LXC containers (memory, CPU, status, and metadata) with streaming bounded output readers to avoid memory exhaustion.
+- 🔒 **Security-First**: Constant-time API key verification, security headers (`Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy: no-referrer`) applied to all HTTP responses, automatic warnings for insecure open network binds across IPv4/IPv6 without authentication, CSV formula-injection sanitization, and permission warnings (`chmod 600`) for config files holding plaintext credentials.
 
 ---
 
@@ -59,6 +59,9 @@ raven --remote 127.0.0.1:9090
 # Print a quick neofetch-style system summary
 raven fetch
 
+# Fetch a system summary from a remote Raven agent
+raven --remote 127.0.0.1:9090 fetch
+
 # Start the Web Dashboard server (default: port 8080)
 raven web
 
@@ -70,13 +73,25 @@ raven print --format json
 
 # Print specific modules' metrics (e.g. cpu, memory)
 raven print cpu memory
+
+# Print metrics from a remote Raven agent
+raven --remote 127.0.0.1:9090 print
 ```
+
+### ⌨️ TUI Keyboard Controls
+
+| Key | Action |
+| --- | --- |
+| `q` / `Ctrl+C` | Quit Raven |
+| `t` | Toggle theme on the fly (Dark ⇄ Light) |
+| `p` | Cycle process sorting order (`cpu` → `memory` → `pid` → `name`) |
+| `r` | Force immediate metric refresh |
 
 ### Global CLI Options
 
 - `-c PATH`, `--config PATH`: Path to a custom `raven.toml` configuration file.
 - `-v`, `--verbose`: Enable verbose debug logging.
-- `-r HOST:PORT`, `--remote HOST:PORT`: Connect to a remote Raven agent instead of inspecting the local system.
+- `-r HOST:PORT`, `--remote HOST:PORT`: Connect to a remote Raven agent instead of inspecting the local system (applicable to TUI, `fetch`, and `print`).
 
 ---
 

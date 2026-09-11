@@ -12,6 +12,7 @@ Raven uses [uv](https://github.com/astral-sh/uv) to manage python dependencies, 
 
 - **Python**: `3.11`, `3.12`, or `3.13`.
 - **uv**: Install via curl or your package manager (see [uv installation](https://github.com/astral-sh/uv#installation)).
+- **Node.js** & **npm** *(optional)*: `Node.js 20+` (v24 recommended). Required only if developing or running tests for the Web Dashboard (`raven/web/static/` and `tests/web/`).
 
 ### Setup Steps
 
@@ -26,6 +27,11 @@ Raven uses [uv](https://github.com/astral-sh/uv) to manage python dependencies, 
    uv sync --all-extras --dev
    ```
    This command automatically creates a virtual environment `.venv` and installs all dependencies, including development tools (`pytest`, `ruff`, etc.).
+
+3. **Install web dashboard test dependencies** *(optional, for web dashboard development)*:
+   ```bash
+   npm install
+   ```
 
 ---
 
@@ -68,20 +74,40 @@ uv run ruff format
 
 ## 🧪 Testing
 
-We use **pytest** for testing. All new features and bug fixes should include corresponding tests.
+All new features and bug fixes should include corresponding tests.
 
-Run the test suite with coverage using `uv`:
+### Python Test Suite (pytest)
+
+Run the backend test suite with coverage using `uv`:
 
 ```bash
 uv run pytest --cov
 ```
 
-Our test suite includes:
-- Unit tests for configuration, exporters, models, and utility functions.
-- Integration tests verifying remote client/server communication using FastAPI's test client.
-- UI/TUI tests validating Textual widgets and application lifecycle.
-- Background runner tests validating daemonized web/remote server orchestration.
-- Feature and regression tests for edge cases and plugin robustness.
+Our Python test suite includes:
+- **Unit tests**: Configuration parsing, metrics exporters (Text, CSV, JSON), data models, and utility functions.
+- **Integration tests**: Remote client/server communication using FastAPI's test client and `RemoteCollector`.
+- **Broadcast & Concurrency tests**: WebSocket fan-out and lifecycle management in `BroadcastHub`, per-client timeouts, and client capacity limits.
+- **UI/TUI tests**: Textual widgets, light/dark theme resolution, grid layout geometry, and application lifecycle.
+- **Background runner tests**: Daemonized web and remote server background process orchestration.
+- **Feature & Regression tests**: Edge cases, error handling, sensor detection, and plugin robustness (CPU, memory, containers, network).
+
+### Web Dashboard Test Suite (Vitest)
+
+The Web Dashboard client-side logic is tested using [Vitest](https://vitest.dev/) and `jsdom`:
+
+```bash
+# Run the web dashboard test suite
+npm test
+
+# Run tests in watch mode during development
+npm run test:watch
+```
+
+The Web Dashboard test suite covers:
+- **Library utilities** (`lib.js`): Formatting (bytes, rates, percentages, temperatures), table sorting, rate calculation, container status detection, and API key obfuscation.
+- **DOM rendering & updates** (`render.test.js`): System cards, CPU bars, memory stats, process tables, truncation notes, and network metrics.
+- **Lifecycle & Authentication** (`dashboard.test.js`): WebSocket connection states, authentication handshakes, reconnection backoff, manual retry triggers, and theme persistence.
 
 ---
 
@@ -103,6 +129,9 @@ When you are ready to submit your changes, please follow these steps:
    uv run ruff format --check
    uv run mypy
    uv run pytest --cov
+
+   # If you modified web dashboard assets or tests:
+   npm test
    ```
 5. **Commit your changes** with a clear and descriptive commit message.
 6. **Push your branch** to your fork and **open a Pull Request** against the `main` branch of the original repository.
