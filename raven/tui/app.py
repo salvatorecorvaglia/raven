@@ -48,6 +48,9 @@ class RavenApp(App):
         Binding("q", "quit", "Quit", priority=True),
         Binding("r", "refresh", "Refresh"),
         Binding("p", "cycle_sort", "Sort procs"),
+        # The web dashboard has had a runtime theme toggle since 1.3.0; the TUI
+        # could only be re-themed by editing raven.toml and restarting.
+        Binding("t", "toggle_theme", "Theme"),
     ]
 
     def __init__(
@@ -66,6 +69,9 @@ class RavenApp(App):
             self._sort_index = _SORT_CYCLE.index(sort_by)
         else:
             self._sort_index = 0
+        # Tracks whether the last tick failed, so a persistent failure notifies
+        # once rather than on every tick.
+        self._collection_failing = False
 
     def compose(self) -> ComposeResult:
         with Container(id="dashboard"):
@@ -103,7 +109,30 @@ class RavenApp(App):
             self._update_widgets(snap)
         except Exception:
             log.exception("Metric collection failed")
-            self.notify("⚠ Collection failed — data may be stale", severity="warning")
+            # Notify on the *transition* only. Firing every tick meant a
+            # remote agent that was down produced a toast every
+            # refresh_interval seconds, indefinitely, burying the dashboard.
+            if not self._collection_failing:
+                self._collection_failing = True
+                self.notify("⚠ Collection failed — data may be stale", severity="warning")
+            self._set_stale(True)
+        else:
+            if self._collection_failing:
+                self._collection_failing = False
+                self.notify("✓ Collection recovered", severity="information")
+            self._set_stale(False)
+
+    def _set_stale(self, stale: bool) -> None:
+        """Mark the dashboard as showing stale data.
+
+        A persistent marker beats a stream of toasts: it says the same thing
+        without competing for the screen, and it mirrors the web dashboard's
+        disconnected badge.
+        """
+        try:
+            self.query_one("#dashboard").set_class(stale, "stale")
+        except Exception:
+            log.debug("Could not toggle the stale class", exc_info=True)
 
     async def _reconcile_process_sort(self, snap: SystemSnapshot) -> SystemSnapshot:
         """Re-truncate the process list if the active sort isn't the configured default.
@@ -169,6 +198,18 @@ class RavenApp(App):
     def action_cycle_sort(self) -> None:
         self._sort_index = (self._sort_index + 1) % len(_SORT_CYCLE)
         self.notify(f"Sorting processes by: {_SORT_CYCLE[self._sort_index]}")
+        self._tick()
+
+    def action_toggle_theme(self) -> None:
+        """Flip between the light and dark themes for this session.
+
+        Not persisted: ``general.theme`` in raven.toml stays the default.
+        """
+        light = self.theme == "textual-light"
+        self.theme = "textual-dark" if light else "textual-light"
+        self.notify(f"Theme: {'dark' if light else 'light'}")
+        # Widgets resolve their palette from the app's theme when they repaint,
+        # so push a frame rather than waiting for the next refresh tick.
         self._tick()
 
     async def on_unmount(self) -> None:

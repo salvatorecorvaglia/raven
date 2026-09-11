@@ -202,3 +202,16 @@ Header {
     dock: top;
     height: 1;
 }
+
+/* ── Stale data ─────────────────────────────────────────────────────────── */
+
+/* Set while collection is failing. A persistent, quiet marker rather than a
+   toast per refresh tick — it says the same thing without covering the panels,
+   and mirrors the web dashboard's disconnected badge. */
+#dashboard.stale {
+    opacity: 0.85;
+}
+
+#dashboard.stale #raven-header {
+    border: solid $warning;
+}

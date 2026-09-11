@@ -64,6 +64,11 @@ htmlcov/
 .pyre/
 .pytype/
 
+# Node (web dashboard tests only — the Python package is the deliverable)
+node_modules/
+.vitest/
+coverage/
+
 # Databases & Logs
 *.db
 *.sqlite

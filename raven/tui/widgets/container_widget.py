@@ -41,12 +41,12 @@ class ContainerWidget(Static):
             self.update(text)
             return
 
-        running = sum(1 for c in containers.containers if c.status in ("running", "up"))
+        running = sum(1 for c in containers.containers if c.is_running)
         text.append(f"  {running}/{len(containers.containers)} running\n\n")
 
         limit = DASHBOARD_LIMITS["containers"]
         for c in containers.containers[:limit]:
-            status_color = palette.good if c.status in ("running", "up") else palette.warn
+            status_color = palette.good if c.is_running else palette.warn
             text.append(f"  [{c.runtime}] ", style=palette.muted)
             text.append(f"{c.name[:20]:<22}", style="bold")
             text.append(f"{c.status:<12}", style=status_color)

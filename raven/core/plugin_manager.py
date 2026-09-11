@@ -41,23 +41,40 @@ _NAME_TO_CONFIG = {
 
 
 def _load_plugin_module(module_name: str) -> type[MonitorPlugin] | None:
-    """Import a plugin module and return its ``MonitorPlugin`` class."""
+    """Import a plugin module and return the ``MonitorPlugin`` class it defines.
+
+    Only classes *defined in* the module count.  Scanning ``dir(mod)`` and
+    taking the first match returned whatever came first alphabetically, so a
+    module that imported a sibling plugin (for a type hint, say) would silently
+    load the wrong class.
+    """
     fqn = f"raven.plugins.{module_name}"
     try:
         mod = importlib.import_module(fqn)
-        for name in dir(mod):
-            obj = getattr(mod, name)
-            if (
-                isinstance(obj, type)
-                and issubclass(obj, MonitorPlugin)
-                and obj is not MonitorPlugin
-            ):
-                return obj
-        log.warning("Plugin module %s has no MonitorPlugin subclass — skipping", fqn)
-        return None
     except Exception:
         log.exception("Failed to load plugin module %s", fqn)
         return None
+
+    owned = [
+        obj
+        for name in dir(mod)
+        if isinstance(obj := getattr(mod, name), type)
+        and issubclass(obj, MonitorPlugin)
+        and obj is not MonitorPlugin
+        and obj.__module__ == fqn
+    ]
+    if not owned:
+        log.warning("Plugin module %s defines no MonitorPlugin subclass — skipping", fqn)
+        return None
+    if len(owned) > 1:
+        log.warning(
+            "Plugin module %s defines %d MonitorPlugin subclasses (%s) — using %s",
+            fqn,
+            len(owned),
+            [c.__name__ for c in owned],
+            owned[0].__name__,
+        )
+    return owned[0]
 
 
 def get_enabled_plugins(config: RavenConfig) -> list[MonitorPlugin]:

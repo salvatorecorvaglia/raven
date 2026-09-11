@@ -36,7 +36,9 @@ class TextExporter(BaseExporter):
             parts.append(f"  CPU  {cpu_bar}  {c.core_count_logical} cores")
             if c.frequency_current_mhz:
                 parts[-1] += f"  @ {c.frequency_current_mhz:.0f} MHz"
-            if c.load_avg_1 is not None:
+            # All three or none: a platform reporting a partial tuple would
+            # otherwise raise TypeError formatting None.
+            if None not in (c.load_avg_1, c.load_avg_5, c.load_avg_15):
                 parts.append(f"  Load: {c.load_avg_1:.2f}  {c.load_avg_5:.2f}  {c.load_avg_15:.2f}")
             parts.append("")
 

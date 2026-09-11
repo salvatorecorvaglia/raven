@@ -61,7 +61,8 @@ class CpuWidget(Static):
         info_parts: list[str] = []
         if cpu.frequency_current_mhz:
             info_parts.append(f"Freq: {cpu.frequency_current_mhz:.0f} MHz")
-        if cpu.load_avg_1 is not None:
+        # See TextExporter: a partial load tuple must not crash the panel.
+        if None not in (cpu.load_avg_1, cpu.load_avg_5, cpu.load_avg_15):
             info_parts.append(
                 f"Load: {cpu.load_avg_1:.2f} {cpu.load_avg_5:.2f} {cpu.load_avg_15:.2f}"
             )

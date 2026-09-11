@@ -30,7 +30,7 @@ class SensorWidget(Static):
                 if t.high:
                     text.append(f" (high: {t.high:.0f}°C)", style=palette.muted)
                 text.append("\n")
-            more_row(text, len(sensors.temperatures) - limit, "sensors", palette)
+            more_row(text, len(sensors.temperatures) - limit, "temperatures", palette)
 
         # Fans
         if sensors.fans:

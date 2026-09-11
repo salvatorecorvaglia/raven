@@ -1,3 +1,4 @@
+from collections import namedtuple
 from unittest.mock import MagicMock, patch
 
 from raven.plugins.cpu import CpuPlugin
@@ -9,22 +10,73 @@ from raven.plugins.sensors import SensorsPlugin
 from raven.plugins.system_info import SystemInfoPlugin
 from raven.plugins.users import UsersPlugin
 
+# The plugin diffs two cpu_times samples of its own rather than calling
+# psutil.cpu_percent, whose "time of last call" state is keyed by thread id —
+# see CpuPlugin's docstring. These fakes stand in for consecutive samples.
+CpuTimes = namedtuple("CpuTimes", "user nice system idle")
 
-@patch("psutil.cpu_percent")
+# all=100, busy=15  ->  all=200, busy=30: 15 busy ticks out of 100 = 15%.
+_BASELINE = CpuTimes(user=10.0, nice=0.0, system=5.0, idle=85.0)
+_AFTER = CpuTimes(user=20.0, nice=0.0, system=10.0, idle=170.0)
+
+
+@patch("psutil.cpu_times")
+@patch("psutil.cpu_stats")
 @patch("psutil.cpu_count")
 @patch("psutil.cpu_freq", create=True)
 @patch("psutil.getloadavg", create=True)
-def test_cpu_plugin(mock_loadavg, mock_freq, mock_count, mock_percent):
-    mock_percent.side_effect = [[15.0, 15.0, 15.0, 15.0], 15.0]
+def test_cpu_plugin(mock_loadavg, mock_freq, mock_count, mock_stats, mock_times):
     mock_count.return_value = 4
     mock_freq.return_value = MagicMock(current=2500.0, max=3000.0)
     mock_loadavg.return_value = (1.0, 1.0, 1.0)
+    mock_stats.return_value = MagicMock(ctx_switches=1, interrupts=2)
+
+    # First call is the constructor's baseline, second is the collect().
+    mock_times.side_effect = [[_BASELINE] * 4, [_AFTER] * 4]
 
     plugin = CpuPlugin()
     assert plugin.is_available() is True
     metrics = plugin.collect()
     assert metrics.percent_overall == 15.0
+    assert metrics.percent_per_core == [15.0, 15.0, 15.0, 15.0]
     assert metrics.core_count_logical == 4
+
+
+@patch("psutil.cpu_times")
+@patch("psutil.cpu_stats")
+@patch("psutil.cpu_count")
+@patch("psutil.cpu_freq", create=True)
+@patch("psutil.getloadavg", create=True)
+def test_cpu_percent_is_independent_of_the_calling_thread(
+    mock_loadavg, mock_freq, mock_count, mock_stats, mock_times
+):
+    """psutil.cpu_percent keys its baseline by thread id, so running the plugin
+    on the collector's rotating pool reported 0.0% every time it landed on a
+    worker it had not run on before — and a wrong window when it had."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    mock_count.return_value = 4
+    mock_freq.return_value = MagicMock(current=2500.0, max=3000.0)
+    mock_loadavg.return_value = (1.0, 1.0, 1.0)
+    mock_stats.return_value = MagicMock(ctx_switches=1, interrupts=2)
+
+    # Baseline, then three evenly-spaced samples of identical shape.
+    samples = [[_BASELINE] * 4]
+    step = CpuTimes(user=10.0, nice=0.0, system=5.0, idle=85.0)
+    running = _BASELINE
+    for _ in range(3):
+        running = CpuTimes(*(a + b for a, b in zip(running, step, strict=True)))
+        samples.append([running] * 4)
+    mock_times.side_effect = samples
+
+    plugin = CpuPlugin()
+    # A fresh thread each time, as the collector pool effectively provides.
+    results = []
+    for _ in range(3):
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            results.append(pool.submit(plugin.collect).result().percent_overall)
+
+    assert results == [15.0, 15.0, 15.0], f"thread rotation changed the reading: {results}"
 
 
 @patch("psutil.virtual_memory")

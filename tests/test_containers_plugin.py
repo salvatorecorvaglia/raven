@@ -1,3 +1,4 @@
+import io
 from unittest.mock import MagicMock, patch
 
 from raven.plugins.containers import ContainersPlugin
@@ -80,8 +81,11 @@ def test_containers_plugin_lxc_only():
         }
     ]"""
     mock_process = MagicMock()
+    # A real pipe, not a canned return value: the plugin reads stdout in
+    # bounded chunks until EOF, and a MagicMock that yields the same payload
+    # on every read() is an infinite stream the size cap correctly rejects.
+    mock_process.stdout = io.BytesIO(mock_lxc_list_json.encode("utf-8"))
     mock_process.communicate.return_value = (mock_lxc_list_json, "")
-    mock_process.stdout.read.return_value = mock_lxc_list_json
     mock_process.wait.return_value = None
     mock_process.returncode = 0
 
@@ -120,3 +124,39 @@ def test_containers_plugin_docker_timeout():
         assert metrics.docker_available is False
         assert plugin._docker_ok is False
         mock_docker.from_env.assert_called_with(timeout=5)
+
+
+def test_lxc_output_over_the_cap_is_rejected_without_buffering_it_all():
+    """The size guard used to run *after* communicate() had already buffered
+    everything, so it could never prevent the OOM it documented. The read must
+    stop at the cap instead."""
+    from raven.plugins import containers as containers_mod
+
+    class EndlessPipe:
+        """A pipe that never reaches EOF, like a runaway `lxc list`."""
+
+        def __init__(self):
+            self.bytes_read = 0
+
+        def read(self, n):
+            self.bytes_read += n
+            return b"x" * n
+
+    pipe = EndlessPipe()
+    mock_process = MagicMock()
+    mock_process.stdout = pipe
+    mock_process.returncode = 0
+
+    with (
+        patch("shutil.which", return_value="/usr/bin/lxc"),
+        patch("subprocess.Popen", return_value=mock_process),
+        patch.dict("sys.modules", {"docker": None}),
+    ):
+        plugin = ContainersPlugin()
+        metrics = plugin.collect()
+
+    assert metrics.containers == []
+    mock_process.kill.assert_called_once()
+    # Bounded: it stopped just past the cap rather than reading forever.
+    cap = containers_mod._LXC_MAX_OUTPUT
+    assert cap < pipe.bytes_read <= cap + 64 * 1024 * 2

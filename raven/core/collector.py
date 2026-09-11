@@ -11,6 +11,7 @@ import atexit
 import logging
 import threading
 import time
+import weakref
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -29,6 +30,28 @@ from raven.core.plugin_manager import get_enabled_plugins
 
 log = logging.getLogger(__name__)
 
+# Every Collector used to register its own bound atexit handler, and only an
+# explicit close() unregistered it — so a process that built collectors over
+# time (or a test session) accumulated handlers, each pinning a live thread
+# pool. One module-level handler over a weak set does the same job and lets a
+# dropped collector be garbage collected.
+_LIVE_COLLECTORS: weakref.WeakSet[Collector] = weakref.WeakSet()
+
+
+def _shutdown_live_collectors() -> None:
+    for collector in list(_LIVE_COLLECTORS):
+        try:
+            collector._shutdown()
+        except Exception:  # pragma: no cover - best effort at interpreter exit
+            log.debug("Collector shutdown failed at exit", exc_info=True)
+
+
+atexit.register(_shutdown_live_collectors)
+
+
+def _register_for_shutdown(collector: Collector) -> None:
+    _LIVE_COLLECTORS.add(collector)
+
 
 class Collector:
     """Collects system metrics from all enabled plugins."""
@@ -45,6 +68,13 @@ class Collector:
             max_workers=min(len(self.plugins), 8) or 1,
             thread_name_prefix="raven-collector",
         )
+        # Separate from _executor: that pool's workers *are* the plugin calls,
+        # so dispatching the outer collect() onto it could deadlock when every
+        # worker is busy. Two threads is plenty — collect() serialises on
+        # _cache_lock anyway.
+        self._async_executor = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="raven-collect-async"
+        )
         self._last_snapshot: SystemSnapshot | None = None
         self._last_collected_at: float = 0.0
         self._cache_lock = threading.Lock()
@@ -52,7 +82,7 @@ class Collector:
         # collect() calls. A plugin whose call is still running when the next
         # cycle starts is *not* resubmitted — see collect()'s inflight check.
         self._inflight: dict[str, Any] = {}
-        atexit.register(self._shutdown)
+        _register_for_shutdown(self)
         log.info(
             "Collector initialised with %d plugins: %s",
             len(self.plugins),
@@ -66,25 +96,32 @@ class Collector:
                 plugin.close()
             except Exception:
                 log.debug("Plugin %s close() failed", plugin.name, exc_info=True)
-        try:
-            self._executor.shutdown(wait=True, cancel_futures=True)
-        except Exception:
+        for executor in (self._async_executor, self._executor):
             try:
-                self._executor.shutdown(wait=False)
+                executor.shutdown(wait=True, cancel_futures=True)
             except Exception:
-                pass
+                try:
+                    executor.shutdown(wait=False)
+                except Exception:
+                    pass
 
     def close(self) -> None:
-        """Explicitly shut down the executor and unregister from atexit to prevent leaks."""
-        try:
-            atexit.unregister(self._shutdown)
-        except Exception:
-            pass
+        """Explicitly shut down the executor and drop the atexit registration."""
+        _LIVE_COLLECTORS.discard(self)
         self._shutdown()
 
     async def close_async(self) -> None:
         """Clean up asynchronous collector resources."""
         self.close()
+
+    @property
+    def last_collected_at(self) -> float:
+        """Unix time of the most recent completed collection (0.0 if never).
+
+        Public because the API layer needs it to timestamp module responses;
+        it used to reach into ``_last_collected_at`` directly.
+        """
+        return self._last_collected_at
 
     def collect(self) -> SystemSnapshot:
         """Run all plugins in parallel and return a snapshot, using TTL cache if fresh."""
@@ -112,17 +149,21 @@ class Collector:
             futures: dict[Any, Any] = {}
             for plugin in self.plugins:
                 prior = self._inflight.get(plugin.name)
-                if prior is not None:
-                    # Still running from an earlier cycle (past its own
+                if prior is not None and not prior.done():
+                    # *Still running* from an earlier cycle (past its own
                     # deadline) — reuse it instead of submitting a second
                     # call on top of it. Resubmitting a hung plugin on every
                     # cycle is what exhausts the pool: each hang would
                     # permanently claim another worker on top of the ones
                     # already stuck.
+                    #
+                    # A future that has *finished* must not be reused: reading
+                    # its result again would replay the previous cycle's
+                    # reading, which halved the effective refresh rate and made
+                    # every value appear twice.
                     futures[prior] = plugin
-                    if prior.done():
-                        del self._inflight[plugin.name]
                     continue
+                self._inflight.pop(plugin.name, None)
                 fut = self._executor.submit(plugin.collect)
                 self._inflight[plugin.name] = fut
                 futures[fut] = plugin
@@ -141,6 +182,13 @@ class Collector:
                     "— using stale/default values for them this cycle",
                     stuck,
                 )
+            finally:
+                # Drop every future that finished this cycle so ``_inflight``
+                # only ever holds genuinely stuck calls — otherwise it pins a
+                # completed future (and its result) until the next cycle.
+                for fut, plugin in futures.items():
+                    if fut.done() and self._inflight.get(plugin.name) is fut:
+                        del self._inflight[plugin.name]
 
             self._last_snapshot = self._assemble(results, self._process_count(results))
             self._last_collected_at = time.time()  # set to the exact completion time
@@ -170,15 +218,36 @@ class Collector:
             return getattr(self._last_snapshot, name, None)
         return None
 
+    # These run on the collector's *own* pool rather than the event loop's
+    # default executor. A collect that blocks (a wedged plugin, a slow Docker
+    # daemon) would otherwise occupy a thread shared with everything else on
+    # the loop; keeping it in-house means the damage is bounded to collection.
     async def collect_module_async(self, name: str) -> Any:
         """Async wrapper around collect_module."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.collect_module, name)
+        return await loop.run_in_executor(self._async_executor, self.collect_module, name)
 
     async def collect_async(self) -> SystemSnapshot:
         """Run collection in a thread executor (non-blocking for async apps)."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.collect)
+        return await loop.run_in_executor(self._async_executor, self.collect)
+
+    def set_collect_cmdline(self, enabled: bool) -> None:
+        """Ask the processes plugin to include (or skip) command lines.
+
+        Gathering cmdline costs a read per PID and nothing renders it, so it is
+        off by default; ``raven print --format json/csv`` turns it on because
+        its output carries the field.  Drops the cached snapshot so the next
+        collect actually reflects the change.
+        """
+        for plugin in self.plugins:
+            if plugin.name == "processes":
+                if getattr(plugin, "collect_cmdline", None) != enabled:
+                    plugin.collect_cmdline = enabled  # type: ignore[attr-defined]
+                    with self._cache_lock:
+                        self._last_snapshot = None
+                        self._last_collected_at = 0.0
+                return
 
     def collect_processes(self, sort_by: str) -> list[Any]:
         """Re-run the processes plugin with an explicit sort key.
@@ -199,21 +268,22 @@ class Collector:
     async def collect_processes_async(self, sort_by: str) -> list[Any]:
         """Async wrapper around collect_processes."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.collect_processes, sort_by)
+        return await loop.run_in_executor(self._async_executor, self.collect_processes, sort_by)
 
     # ── private ──────────────────────────────────────────────────────────
 
-    def _process_count(self, results: dict[str, Any]) -> int:
+    @staticmethod
+    def _process_count(results: dict[str, Any]) -> int:
         """Total processes on the host, before display truncation.
 
         The processes plugin truncates its return value, so its length would
-        understate the real count.
+        understate the real count.  The total travels *with* the list (see
+        ``ProcessListing``) rather than being read back off the plugin object,
+        which is written from a worker thread and could describe a different
+        cycle than the list it is paired with.
         """
         procs = results.get("processes") or []
-        for plugin in self.plugins:
-            if plugin.name == "processes":
-                return getattr(plugin, "total_count", len(procs))
-        return len(procs)
+        return getattr(procs, "total", len(procs))
 
     @staticmethod
     def _assemble(results: dict[str, Any], process_count: int = 0) -> SystemSnapshot:

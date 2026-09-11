@@ -145,16 +145,40 @@ def main(argv: list[str] | None = None) -> None:
 
     command = args.command
 
+    # ``--remote`` is a global flag, so it reaches every subcommand's namespace.
+    # Only the collector-backed commands can act on it; the servers would
+    # silently ignore it and monitor the local host instead, so say so.
+    if getattr(args, "remote", None) and command in ("web", "serve"):
+        parser.error(
+            f"--remote cannot be used with '{command}': it starts a server that "
+            "reports this host. Run it on the host you want to monitor, or use "
+            f"'raven --remote ... print' / 'raven --remote ...' instead."
+        )
+
     # ── fetch ────────────────────────────────────────────────────────
     if command == "fetch":
         from raven.fetch import run_fetch
 
-        run_fetch(config)
+        # Was always a local Collector, so `raven --remote host fetch`
+        # silently summarised the local machine.
+        collector = _get_collector(args, config)
+        try:
+            run_fetch(config, collector=collector)
+        except Exception as exc:
+            remote_addr = getattr(args, "remote", None)
+            if remote_addr:
+                parser.error(_remote_error_message(remote_addr, exc))
+            raise
+        finally:
+            collector.close()
         return
 
     # ── print ────────────────────────────────────────────────────────
     if command == "print":
-        _cmd_print(args, config)
+        try:
+            _cmd_print(args, config, parser)
+        except RemoteUnavailable as exc:
+            parser.error(str(exc))
         return
 
     # ── web ──────────────────────────────────────────────────────────
@@ -174,6 +198,24 @@ def main(argv: list[str] | None = None) -> None:
 # ── Sub-command handlers ─────────────────────────────────────────────────────
 
 
+class RemoteUnavailable(Exception):
+    """A remote agent could not be reached or refused the request."""
+
+
+def _remote_error_message(addr: str, exc: Exception) -> str:
+    """Turn an httpx failure into something a user can act on."""
+    import httpx
+
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 401:
+        return (
+            f"remote agent at {addr} rejected the API key. "
+            "Set a matching [remote] api_key in your config."
+        )
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"remote agent at {addr} returned HTTP {exc.response.status_code}"
+    return f"could not reach remote agent at {addr}: {exc}"
+
+
 def _get_collector(args: argparse.Namespace, config: RavenConfig):
     """Instantiate a local or remote collector based on CLI arguments."""
     remote_addr = getattr(args, "remote", None)
@@ -187,15 +229,43 @@ def _get_collector(args: argparse.Namespace, config: RavenConfig):
     return Collector(config)
 
 
-def _cmd_print(args: argparse.Namespace, config: RavenConfig) -> None:
+def _cmd_print(
+    args: argparse.Namespace, config: RavenConfig, parser: argparse.ArgumentParser
+) -> None:
     fmt = args.format or config.export.format
     modules = args.modules or None
 
+    # An unrecognised name used to produce empty output and exit 0, so a typo
+    # looked like "this host reports nothing" rather than a mistake.
+    if modules:
+        from raven.core.api import VALID_MODULES
+
+        unknown = [m for m in modules if m not in VALID_MODULES]
+        if unknown:
+            parser.error(
+                f"unknown module(s): {', '.join(sorted(unknown))}. "
+                f"Valid modules: {', '.join(sorted(VALID_MODULES))}"
+            )
+
     from raven.export import get_exporter
 
+    remote_addr = getattr(args, "remote", None)
     collector = _get_collector(args, config)
+    # JSON and CSV carry the cmdline field, so pay for it here — it is skipped
+    # everywhere else because nothing renders it. Text output doesn't show it.
+    if fmt in ("json", "csv"):
+        set_cmdline = getattr(collector, "set_collect_cmdline", None)
+        if set_cmdline is not None:
+            set_cmdline(True)
     try:
-        snapshot = collector.collect()
+        try:
+            snapshot = collector.collect()
+        except Exception as exc:
+            # An unreachable agent is a user error, not a crash — report it the
+            # way a bad config is reported rather than as a traceback.
+            if remote_addr:
+                raise RemoteUnavailable(_remote_error_message(remote_addr, exc)) from exc
+            raise
         print(get_exporter(fmt, config).format(snapshot, modules))
     finally:
         # RemoteCollector holds an HTTP connection pool; Collector a thread pool.

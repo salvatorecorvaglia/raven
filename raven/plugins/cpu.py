@@ -3,24 +3,72 @@
 from __future__ import annotations
 
 import os
+import threading
 
 import psutil
 
 from raven.core.models import CpuMetrics
 from raven.plugins.base import MonitorPlugin
 
-# Prime psutil's internal cpu_percent counter so that the first real
-# ``collect()`` call returns a meaningful value instead of 0.0.
-psutil.cpu_percent(interval=None)
-psutil.cpu_percent(interval=None, percpu=True)
+
+def _busy_percent(previous, current) -> float:
+    """Percentage of the interval between two ``cpu_times`` samples spent busy.
+
+    The same calculation ``psutil.cpu_percent`` performs internally; done here
+    so the figure depends on this plugin's own previous sample rather than on
+    per-thread state inside psutil (see ``CpuPlugin``).
+    """
+    prev_all, curr_all = sum(previous), sum(current)
+    prev_busy = prev_all - previous.idle
+    curr_busy = curr_all - current.idle
+
+    all_delta = curr_all - prev_all
+    busy_delta = curr_busy - prev_busy
+    if all_delta <= 0 or busy_delta <= 0:
+        return 0.0
+    return round(min(max(busy_delta / all_delta * 100.0, 0.0), 100.0), 1)
 
 
 class CpuPlugin(MonitorPlugin):
+    """CPU metrics, sampled from this plugin's own previous reading.
+
+    ``psutil.cpu_percent(interval=0)`` keys its "time of last call" state by
+    **thread id**.  The collector runs plugins on a rotating thread pool, so
+    every time this plugin landed on a worker it had not run on before, psutil
+    had no baseline for that thread and returned ``0.0`` — and when it did have
+    one, the measurement window was "since this thread last ran", which is not
+    the refresh interval.  Holding the previous ``cpu_times`` sample on the
+    instance makes the reading correct no matter which thread collects it.
+    """
+
     name = "cpu"
     category = "cpu"
 
+    def __init__(self, config=None) -> None:
+        super().__init__(config)
+        self._lock = threading.Lock()
+        # Baseline taken at construction so the first collect() has something
+        # to diff against instead of reporting a flat zero.
+        self._prev_per_cpu = psutil.cpu_times(percpu=True)
+
     def is_available(self) -> bool:
         return True
+
+    def _percentages(self) -> tuple[float, list[float]]:
+        """Return ``(overall, per_core)`` since the previous collect."""
+        current = psutil.cpu_times(percpu=True)
+        with self._lock:
+            previous = self._prev_per_cpu
+            self._prev_per_cpu = current
+
+        if not current:
+            return 0.0, []
+        if previous is None or len(previous) != len(current):
+            return 0.0, [0.0] * len(current)
+
+        per_core = [_busy_percent(p, c) for p, c in zip(previous, current, strict=False)]
+        overall = round(sum(per_core) / len(per_core), 1) if per_core else 0.0
+        return overall, per_core
 
     @staticmethod
     def _normalise_mhz(value: float | None) -> float | None:
@@ -53,9 +101,7 @@ class CpuPlugin(MonitorPlugin):
 
         cpu_stats = psutil.cpu_stats()
 
-        percent_per_core = psutil.cpu_percent(interval=0, percpu=True)
-        percent_overall = sum(percent_per_core) / len(percent_per_core) if percent_per_core else 0.0
-        percent_overall = round(percent_overall, 1)
+        percent_overall, percent_per_core = self._percentages()
 
         return CpuMetrics(
             percent_overall=percent_overall,

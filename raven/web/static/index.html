@@ -165,6 +165,7 @@
                         <tbody id="process-tbody"></tbody>
                     </table>
                 </div>
+                <div class="more-note" id="process-note" hidden></div>
             </div>
         </section>
     </main>
@@ -192,6 +193,9 @@
         </div>
     </div>
 
+    <!-- Pure helpers, shared with the unit tests. Must precede app.js, which
+         reads them off window.RavenLib. -->
+    <script src="/static/lib.js"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>

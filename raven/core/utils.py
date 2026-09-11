@@ -37,6 +37,12 @@ LEVEL_GOOD = "good"
 LEVEL_WARN = "warn"
 LEVEL_CRIT = "crit"
 
+# The thresholds themselves, named so they can be shipped to the web dashboard
+# over /health rather than hand-copied into app.js and kept in sync by comment.
+PERCENT_THRESHOLDS: tuple[float, float] = (50.0, 80.0)
+# Fallback trip points for a sensor that reports none of its own.
+TEMP_THRESHOLDS: tuple[float, float] = (70.0, 85.0)
+
 # Level -> hex, for console output (``fetch`` and ``print``), which has no
 # theme to consult and so must pick one palette and keep it.
 _LEVEL_HEX: dict[str, str] = {
@@ -46,7 +52,9 @@ _LEVEL_HEX: dict[str, str] = {
 }
 
 
-def level_for_percent(pct: float | None, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
+def level_for_percent(
+    pct: float | None, thresholds: tuple[float, float] = PERCENT_THRESHOLDS
+) -> str:
     """Return the severity level of a percentage value.
 
     Parameters
@@ -83,14 +91,17 @@ def level_for_temp(
     if high and celsius >= high:
         return LEVEL_WARN
     if not high and not critical:
-        if celsius >= 85:
+        warn, crit = TEMP_THRESHOLDS
+        if celsius >= crit:
             return LEVEL_CRIT
-        if celsius >= 70:
+        if celsius >= warn:
             return LEVEL_WARN
     return LEVEL_GOOD
 
 
-def color_for_percent(pct: float | None, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
+def color_for_percent(
+    pct: float | None, thresholds: tuple[float, float] = PERCENT_THRESHOLDS
+) -> str:
     """Return a fixed hex colour for a percentage value.
 
     For console output. The TUI wants colours that follow the active theme —

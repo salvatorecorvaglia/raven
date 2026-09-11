@@ -15,13 +15,17 @@ Every role below clears 3:1 in both built-in themes.
 
 from __future__ import annotations
 
+import weakref
+from collections.abc import MutableMapping
 from dataclasses import dataclass
+from typing import Any
 
 from textual.color import Color
 
 from raven.core.utils import (
     LEVEL_CRIT,
     LEVEL_WARN,
+    PERCENT_THRESHOLDS,
     level_for_percent,
     level_for_temp,
 )
@@ -73,7 +77,9 @@ class Palette:
             return self.warn
         return self.good
 
-    def for_percent(self, pct: float | None, thresholds: tuple[float, float] = (50.0, 80.0)) -> str:
+    def for_percent(
+        self, pct: float | None, thresholds: tuple[float, float] = PERCENT_THRESHOLDS
+    ) -> str:
         return self.for_level(level_for_percent(pct, thresholds))
 
     def for_temp(
@@ -83,8 +89,10 @@ class Palette:
 
 
 # Resolving means a dict build plus colour parsing, and widgets repaint on every
-# refresh tick, so cache per theme name and let a theme switch miss the cache.
-_cache: dict[str, Palette] = {}
+# refresh tick, so cache per (app, theme name): a theme switch misses the cache,
+# and the entry dies with the app rather than leaking across app instances (or
+# pinning stale colours for a theme that was redefined under the same name).
+_cache: MutableMapping[Any, dict[str, Palette]] = weakref.WeakKeyDictionary()
 
 
 def _resolve(variables: dict[str, str]) -> Palette:
@@ -124,7 +132,12 @@ def palette_for(widget) -> Palette:
     except Exception:
         return Palette(**_FALLBACK)
 
-    cached = _cache.get(theme_name)
+    try:
+        per_app = _cache.setdefault(app, {})
+    except TypeError:  # pragma: no cover - a non-weakrefable stand-in app
+        per_app = {}
+
+    cached = per_app.get(theme_name)
     if cached is not None:
         return cached
 
@@ -132,5 +145,5 @@ def palette_for(widget) -> Palette:
         palette = _resolve(app.get_css_variables())
     except Exception:
         palette = Palette(**_FALLBACK)
-    _cache[theme_name] = palette
+    per_app[theme_name] = palette
     return palette

@@ -937,3 +937,28 @@ body.light-theme .btn-primary {
     accent-color: var(--accent-cyan, #00d2ff);
     cursor: pointer;
 }
+
+/* Appears beside the status badge once the reconnect budget is spent. Telling
+   someone to reload the page is a dead end when a click will do. */
+.retry-btn {
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.6rem;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition);
+}
+
+.retry-btn:hover {
+    background: var(--btn-ghost-hover);
+}
+
+.retry-btn:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+}

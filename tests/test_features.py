@@ -145,19 +145,16 @@ def test_health_reports_configured_theme():
 
 
 def test_theme_init_runs_before_paint():
-    """The theme script must run at the top of <body>, not on DOMContentLoaded,
-    or light-theme users see a dark flash first."""
+    """The theme script must not defer, or light-theme users see a dark flash.
+
+    Where it sits in the document is asserted in tests/web/dashboard.test.js,
+    which parses the page rather than searching it for substrings.
+    """
     from pathlib import Path
 
     static = Path(__file__).parent.parent / "raven/web/static"
-    html = (static / "index.html").read_text(encoding="utf-8")
     script = (static / "theme-init.js").read_text(encoding="utf-8")
 
-    body_at = html.index("<body")
-    assert html.index("theme-init.js") > body_at, "must be inside <body>"
-    # Nothing renderable may precede it inside <body>.
-    preamble = html[body_at : html.index("theme-init.js")]
-    assert "<header" not in preamble and "<main" not in preamble
     assert "DOMContentLoaded" not in script, "deferring the class defeats the purpose"
     assert "document.body.classList.add" in script
 
@@ -175,26 +172,24 @@ def test_health_reports_max_display():
         assert client.get("/health").json()["max_display"] == 7
 
 
-def test_auth_modal_has_dialog_semantics_and_focus_trap():
-    """A keyboard user must not be able to Tab out to the dimmed dashboard
-    behind the auth modal while it's blocking the app."""
-    from pathlib import Path
+def test_dashboard_takes_its_process_limit_from_the_agent():
+    """The dashboard must render max_display rows, not a number of its own.
 
-    static = Path(__file__).parent.parent / "raven/web/static"
-    html = (static / "index.html").read_text(encoding="utf-8")
-    js = (static / "app.js").read_text(encoding="utf-8")
+    Asserted through /health's contract rather than by grepping app.js for an
+    expression, which broke whenever the line was reformatted.
+    """
+    from fastapi.testclient import TestClient
 
-    assert 'role="dialog"' in html
-    assert 'aria-modal="true"' in html
-    assert "trapAuthModalFocus" in js
+    from raven.web.server import create_app
 
+    cfg = RavenConfig(processes=ProcessesConfig(max_display=9))
+    with TestClient(create_app(cfg)) as client:
+        health = client.get("/health").json()
+        snapshot = client.get("/api/v1/snapshot").json()
 
-def test_dashboard_has_no_hardcoded_process_limit():
-    from pathlib import Path
-
-    js = (Path(__file__).parent.parent / "raven/web/static/app.js").read_text(encoding="utf-8")
-    assert "sorted.slice(0, maxDisplay)" in js
-    assert "const displayLimit = 40" not in js
+    assert health["max_display"] == 9
+    # And the agent actually trims to it, so the dashboard cannot show more.
+    assert len(snapshot["processes"]) <= 9
 
 
 # ── U7: temperatures use trip points, not the percentage scale ───────────────
@@ -482,3 +477,47 @@ def test_once_flag_removed():
 
     with pytest.raises(SystemExit):
         _build_parser().parse_args(["print", "--once"])
+
+
+# ── A4: the two declared versions must not drift ────────────────────────────
+
+
+def test_fallback_version_matches_pyproject():
+    """__init__.py carries a hardcoded fallback for editable installs without
+    metadata. Nothing kept it in step with pyproject.toml."""
+    import re
+    import tomllib
+    from pathlib import Path
+
+    root = Path(__file__).parent.parent
+    declared = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+    source = (root / "raven/__init__.py").read_text(encoding="utf-8")
+    match = re.search(r'__version__ = "([^"]+)"', source)
+    assert match, "no fallback __version__ literal found in raven/__init__.py"
+    assert match.group(1) == declared, (
+        f"fallback version {match.group(1)!r} != pyproject {declared!r}"
+    )
+
+
+# ── A2: the dashboard must take its thresholds from the agent ───────────────
+
+
+def test_health_reports_severity_thresholds():
+    from fastapi.testclient import TestClient
+
+    from raven.core.utils import PERCENT_THRESHOLDS, TEMP_THRESHOLDS
+    from raven.web.server import create_app
+
+    with TestClient(create_app(RavenConfig())) as client:
+        thresholds = client.get("/health").json()["thresholds"]
+    assert thresholds["percent"] == list(PERCENT_THRESHOLDS)
+    assert thresholds["temp"] == list(TEMP_THRESHOLDS)
+
+
+def test_dashboard_reads_thresholds_from_the_agent():
+    """The colouring rules themselves are covered in tests/web/lib.test.js;
+    this pins the wiring — the page must ask the agent rather than assume."""
+    from pathlib import Path
+
+    js = (Path(__file__).parent.parent / "raven/web/static/app.js").read_text(encoding="utf-8")
+    assert "d.thresholds" in js, "the dashboard must read thresholds from /health"

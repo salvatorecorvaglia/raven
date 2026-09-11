@@ -51,7 +51,7 @@ class NetworkPlugin(MonitorPlugin):
         with self._lock:
             # Connection count — throttle to once every 10 collect cycles (ticks)
             self._ticks += 1
-            if self._ticks % 10 == 1 or self._ticks == 1:
+            if self._ticks % 10 == 1:
                 try:
                     self._conn_count = len(psutil.net_connections(kind="inet"))
                 except Exception:

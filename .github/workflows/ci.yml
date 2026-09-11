@@ -108,6 +108,25 @@ jobs:
           name: coverage-xml
           path: coverage.xml
 
+  web-test:
+    name: Web dashboard tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run vitest
+        run: npm test
+
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest

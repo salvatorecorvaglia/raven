@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 
+from raven.core.limits import EXPORT_LIMITS
 from raven.core.models import SystemSnapshot
 from raven.core.utils import serialize_model as asdict
 from raven.export.base import BaseExporter
@@ -24,6 +25,16 @@ def _sanitize_csv_field(value: str) -> str:
     return value
 
 
+# Flattened keys are dotted paths ("disk.partitions"), so the limit is keyed
+# off the last segment — the plural noun EXPORT_LIMITS is indexed by.
+_DEFAULT_NESTED_CAP = 5
+
+
+def _nested_cap(full_key: str) -> int:
+    """Row cap for a nested list, from EXPORT_LIMITS where one is defined."""
+    return EXPORT_LIMITS.get(full_key.rsplit(".", 1)[-1], _DEFAULT_NESTED_CAP)
+
+
 def _flatten(data: dict, prefix: str = "") -> dict[str, str]:
     """Flatten a nested dict into dot-separated keys."""
     items: dict[str, str] = {}
@@ -37,8 +48,11 @@ def _flatten(data: dict, prefix: str = "") -> dict[str, str]:
             elif isinstance(value[0], dict):
                 # "processes" is already truncated to processes.max_display by
                 # the exporter before this runs, so it isn't re-capped here —
-                # only other, still-uncapped nested lists get the safety cap.
-                cap = len(value) if full_key == "processes" else 5
+                # only other, still-uncapped nested lists get a cap.  That cap
+                # comes from EXPORT_LIMITS, the same table the text exporter
+                # uses, so one host doesn't export 8 partitions as text and 5
+                # as CSV.
+                cap = len(value) if full_key == "processes" else _nested_cap(full_key)
                 for i, item in enumerate(value[:cap]):
                     items.update(_flatten(item, f"{full_key}[{i}]"))
             else:

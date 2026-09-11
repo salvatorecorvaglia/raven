@@ -81,5 +81,5 @@ show_missing = true
 
 [dependency-groups]
 dev = [
-    "ruff==0.16.6",
+    "ruff==0.16.7",
 ]

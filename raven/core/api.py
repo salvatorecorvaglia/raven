@@ -9,18 +9,20 @@ from __future__ import annotations
 
 import asyncio
 import hmac
-import json
 import logging
 import sys
 import time
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from raven.config import RavenConfig
+from raven.core.broadcast import MAX_WEBSOCKET_CLIENTS, BroadcastHub
 from raven.core.collector import Collector
 from raven.core.limits import DASHBOARD_LIMITS
+from raven.core.utils import PERCENT_THRESHOLDS, TEMP_THRESHOLDS
 from raven.core.utils import serialize_model as asdict
 
 log = logging.getLogger(__name__)
@@ -40,27 +42,74 @@ VALID_MODULES = frozenset(
     }
 )
 
-# Upper bound on concurrent WebSocket clients per server.  The broadcast loop
-# sends to every client serially, so an unbounded set lets one viewer degrade
-# the stream for all of them.
-MAX_WEBSOCKET_CLIENTS = 64
 
-# Per-client send timeout, so a stalled socket cannot block the broadcast loop.
-_WS_SEND_TIMEOUT = 5.0
+def _is_public_bind(host: str) -> bool:
+    """True if *host* exposes the service beyond this machine.
+
+    Matching the literal string ``"0.0.0.0"`` missed ``::`` (all IPv6
+    interfaces), an empty host, and any explicit LAN address — all of which
+    put metrics on the network just as effectively.
+    """
+    import ipaddress
+
+    bind = (host or "").strip()
+    if bind in ("", "*"):
+        return True
+    # Strip brackets from an IPv6 literal like "[::]".
+    bind = bind.strip("[]")
+    try:
+        addr = ipaddress.ip_address(bind)
+    except ValueError:
+        # A hostname. "localhost" is the only one we can call safe without
+        # resolving it, and resolution here would be a surprising side effect.
+        return bind.lower() not in ("localhost", "localhost.localdomain")
+    return not addr.is_loopback
+
+
+# Fields dropped from the streamed/REST snapshot. `cmdline` is ~70% of a
+# typical payload (61 KB of 87 KB on a 605-process host) and no dashboard —
+# TUI or web — renders it. `raven print` builds its output from the Collector
+# directly, so exports keep the full field; a remote client that wants it asks
+# for ?full=true.
+_TRIMMED_PROCESS_FIELDS = ("cmdline",)
+
+
+def serialize_snapshot(snap: Any, *, max_processes: int | None) -> dict[str, Any]:
+    """Serialise a snapshot for the wire.
+
+    ``max_processes`` caps the process list and drops the fields no dashboard
+    renders.  ``None`` means send everything, untouched — what a remote Raven
+    client asks for so its exports match a local run.  ``process_count`` is
+    never altered, so a trimmed payload still reports the host's real total.
+    """
+    data = asdict(snap)
+    if max_processes is None:
+        return data
+    procs = data.get("processes")
+    if not isinstance(procs, list):
+        return data
+    data["processes"] = [
+        {k: v for k, v in proc.items() if k not in _TRIMMED_PROCESS_FIELDS}
+        if isinstance(proc, dict)
+        else proc
+        for proc in procs[:max_processes]
+    ]
+    return data
 
 
 def warn_open_bind(host: str, api_key: str, service_name: str) -> None:
-    """Log a security warning if binding to all interfaces with no auth."""
-    if host == "0.0.0.0" and not api_key:
+    """Log a security warning if binding beyond loopback with no auth."""
+    if _is_public_bind(host) and not api_key:
         log.warning(
-            "⚠️  %s is binding to 0.0.0.0 with no API key. "
-            "System metrics will be exposed to the entire network. "
+            "⚠️  %s is binding to %s with no API key. "
+            "System metrics will be exposed to the network. "
             "Set an api_key or bind to 127.0.0.1.",
             service_name,
+            host or "all interfaces",
         )
         print(
-            f"⚠️  WARNING: {service_name} is binding to 0.0.0.0 with no API key. "
-            "System metrics are exposed to the network.",
+            f"⚠️  WARNING: {service_name} is binding to {host or 'all interfaces'} "
+            "with no API key. System metrics are exposed to the network.",
             file=sys.stderr,
         )
 
@@ -109,8 +158,6 @@ def create_base_app(
     """
     from raven import __version__
 
-    active_websockets: set[WebSocket] = set()
-
     def _active_modules() -> frozenset[str]:
         """Modules this collector actually monitors.
 
@@ -120,47 +167,24 @@ def create_base_app(
         """
         return getattr(collector, "active_modules", VALID_MODULES)
 
-    async def broadcast_snapshots():
-        log.info("Starting background WebSocket broadcast loop")
-        try:
-            while True:
-                if active_websockets:
-                    snap = await collector.collect_async()
-                    payload = json.dumps(asdict(snap), default=str)
-                    disconnected = []
-                    for ws in list(active_websockets):
-                        try:
-                            await asyncio.wait_for(ws.send_text(payload), _WS_SEND_TIMEOUT)
-                        except TimeoutError:
-                            log.warning("Dropping WebSocket client — send timed out")
-                            disconnected.append(ws)
-                        except Exception:
-                            disconnected.append(ws)
-                    for ws in disconnected:
-                        active_websockets.discard(ws)
-                        try:
-                            await ws.close(code=1011, reason="Send timeout")
-                        except Exception:
-                            pass
-                await asyncio.sleep(config.general.refresh_interval)
-        except asyncio.CancelledError:
-            log.info("Background WebSocket broadcast loop cancelled")
-        except Exception:
-            log.exception("Error in background broadcast loop")
+    def _wire_snapshot(snap: Any) -> dict[str, Any]:
+        """Trim a snapshot to what a dashboard actually renders."""
+        return serialize_snapshot(snap, max_processes=config.processes.max_display)
 
-    broadcast_task = None
+    hub = BroadcastHub(
+        snapshot_source=collector.collect_async,
+        serializer=_wire_snapshot,
+        interval=config.general.refresh_interval,
+        # Read here, at app-construction time, so this stays the app's own
+        # capacity knob rather than a value baked into a default argument.
+        max_clients=MAX_WEBSOCKET_CLIENTS,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        nonlocal broadcast_task
-        broadcast_task = asyncio.create_task(broadcast_snapshots())
+        hub.start()
         yield
-        if broadcast_task:
-            broadcast_task.cancel()
-            try:
-                await broadcast_task
-            except asyncio.CancelledError:
-                pass
+        await hub.stop()
         # Only tear down a collector this app created — a shared collector
         # (e.g. owned by the TUI) must outlive the server.
         if owns_collector:
@@ -187,29 +211,6 @@ def create_base_app(
         allow_headers=["X-API-Key"],
     )
 
-    # ── Security headers ────────────────────────────────────────────
-    # The dashboard ships all of its own assets (Chart.js is vendored, fonts
-    # are system stacks), so the CSP can forbid every external origin.
-    # connect-src keeps ws:/wss: for the live stream.
-    @app.middleware("http")
-    async def _add_security_headers(request: Request, call_next):
-        response = await call_next(request)
-        response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault(
-            "Content-Security-Policy",
-            "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self'; "
-            "img-src 'self' data:; "
-            "connect-src 'self' ws: wss:; "
-            "frame-ancestors 'none'; "
-            "base-uri 'none'; "
-            "form-action 'none'",
-        )
-        return response
-
     # ── API key middleware (timing-safe) ─────────────────────────────
     _skip = (skip_auth_paths or frozenset()) | frozenset({"/health"})
 
@@ -232,15 +233,51 @@ def create_base_app(
                 return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
             return await call_next(request)
 
+    # ── Security headers ────────────────────────────────────────────
+    # The dashboard ships all of its own assets (Chart.js is vendored, fonts
+    # are system stacks), so the CSP can forbid every external origin.
+    # connect-src keeps ws:/wss: for the live stream.
+    #
+    # Registered *after* the auth middleware on purpose: Starlette runs the
+    # last-registered HTTP middleware first, so this must be outermost or a
+    # 401 short-circuits before the headers are ever attached — which is
+    # exactly what used to happen to every auth failure.
+    @app.middleware("http")
+    async def _add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self'; "
+            "img-src 'self' data:; "
+            "connect-src 'self' ws: wss:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'none'; "
+            "form-action 'none'",
+        )
+        return response
+
     # ── REST: full snapshot ──────────────────────────────────────────
     @app.get("/api/v1/snapshot")
-    async def snapshot():
+    async def snapshot(full: bool = False):
+        """The dashboard payload by default; ``?full=true`` for the whole thing.
+
+        Another Raven instance (``raven --remote``) asks for the full form so
+        that `raven print` over a remote agent still exports every process and
+        every field.
+        """
         snap = await collector.collect_async()
-        return asdict(snap)
+        if full:
+            return serialize_snapshot(snap, max_processes=None)
+        return _wire_snapshot(snap)
 
     # ── REST: individual modules ─────────────────────────────────────
     @app.get("/api/v1/{module}")
-    async def module_data(module: str):
+    async def module_data(module: str, full: bool = False):
         if module not in VALID_MODULES:
             raise HTTPException(
                 status_code=404,
@@ -255,12 +292,21 @@ def create_base_app(
         if result is None:
             raise HTTPException(status_code=404, detail=f"No data for module '{module}'")
         if isinstance(result, list):
+            if module == "processes" and not full:
+                result = result[: config.processes.max_display]
             serialized = [asdict(x) if hasattr(x, "__dataclass_fields__") else x for x in result]
+            if module == "processes" and not full:
+                serialized = [
+                    {k: v for k, v in x.items() if k not in _TRIMMED_PROCESS_FIELDS}
+                    if isinstance(x, dict)
+                    else x
+                    for x in serialized
+                ]
         elif hasattr(result, "__dataclass_fields__"):
             serialized = asdict(result)
         else:
             serialized = result
-        timestamp = collector._last_collected_at or time.time()
+        timestamp = getattr(collector, "last_collected_at", 0.0) or time.time()
         return {"module": module, "timestamp": timestamp, "data": serialized}
 
     # ── WebSocket: live stream ───────────────────────────────────────
@@ -280,7 +326,7 @@ def create_base_app(
                     await websocket.close(code=4001, reason="Invalid API key")
                     return
 
-            if len(active_websockets) >= MAX_WEBSOCKET_CLIENTS:
+            if hub.is_full():
                 log.warning(
                     "Rejecting WebSocket client — %d client limit reached",
                     MAX_WEBSOCKET_CLIENTS,
@@ -288,9 +334,11 @@ def create_base_app(
                 await websocket.close(code=1013, reason="Too many clients")
                 return
 
-            active_websockets.add(websocket)
+            hub.add(websocket)
             initial_snap = await collector.collect_async()
-            await websocket.send_text(json.dumps(asdict(initial_snap), default=str))
+            # Same trim as the broadcast loop — this is the first frame every
+            # browser sees, and it was going out untrimmed.
+            await websocket.send_text(hub.encode(initial_snap))
 
             while True:
                 await websocket.receive_text()
@@ -302,7 +350,7 @@ def create_base_app(
             except Exception:
                 pass
         finally:
-            active_websockets.discard(websocket)
+            hub.discard(websocket)
 
     # ── Health check ─────────────────────────────────────────────────
     @app.get("/health")
@@ -318,10 +366,21 @@ def create_base_app(
             # So the dashboard applies the same process limit as the TUI and
             # `raven print` rather than a hardcoded one.
             "max_display": config.processes.max_display,
+            # The key the agent ranked the process list by before truncating.
+            # The dashboard can only re-sort what it received, so it needs this
+            # to label a local re-sort as such instead of implying a true top-N.
+            "sort_by": config.processes.sort_by,
             # Same reason, for the variable-length lists: without these the web
             # dashboard rendered every partition and interface while the TUI
             # showed 5, so one host described itself two different ways.
             "display_limits": dict(DASHBOARD_LIMITS),
+            # The severity thresholds, so the dashboard colours a reading the
+            # same way the TUI and console output do instead of keeping its
+            # own copy in step by comment.
+            "thresholds": {
+                "percent": list(PERCENT_THRESHOLDS),
+                "temp": list(TEMP_THRESHOLDS),
+            },
         }
 
     return app

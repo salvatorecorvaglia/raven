@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from typing import Any
 
 import httpx
 
@@ -38,6 +40,29 @@ from raven.core.models import (
 
 log = logging.getLogger(__name__)
 
+# The agent trims its snapshot for browser dashboards (no cmdline, process list
+# capped at max_display). Another Raven is not a browser: `raven print --remote`
+# must be able to export the same fields it would export locally, so ask for
+# the untrimmed form. Agents older than this flag ignore the parameter and send
+# the full payload anyway, which is exactly the right fallback.
+_FULL_SNAPSHOT = {"full": "true"}
+
+# Assumed when the agent hasn't been asked (or can't be reached): better to
+# offer a module and fail than to hide one that is actually there.
+_ALL_MODULES = frozenset(
+    {
+        "cpu",
+        "memory",
+        "disk",
+        "network",
+        "processes",
+        "users",
+        "sensors",
+        "containers",
+        "system_info",
+    }
+)
+
 
 class RemoteCollector:
     """Collects system metrics from a remote Raven agent via HTTP."""
@@ -53,6 +78,11 @@ class RemoteCollector:
         # Keeps a strong reference to fire-and-forget cleanup tasks scheduled
         # by close() so the event loop doesn't garbage-collect them mid-close.
         self._pending_close_tasks: set[asyncio.Task] = set()
+        self._last_collected_at: float = 0.0
+        # Populated from the agent's /health on first contact. Until then,
+        # assume the agent serves everything — the same assumption core.api
+        # made for collectors that didn't advertise the set.
+        self._active_modules: frozenset[str] | None = None
 
     def _headers(self) -> dict[str, str]:
         hdrs: dict[str, str] = {}
@@ -99,7 +129,19 @@ class RemoteCollector:
                 )
                 task = loop.create_task(client.aclose())
                 self._pending_close_tasks.add(task)
-                task.add_done_callback(self._pending_close_tasks.discard)
+                task.add_done_callback(self._on_close_task_done)
+
+    def _on_close_task_done(self, task: asyncio.Task) -> None:
+        """Surface a cleanup task that failed instead of dropping it silently."""
+        self._pending_close_tasks.discard(task)
+        if task.cancelled():
+            log.warning(
+                "RemoteCollector async client cleanup was cancelled before it "
+                "completed; its connection pool may not have been released"
+            )
+            return
+        if task.exception() is not None:
+            log.warning("RemoteCollector async client cleanup failed: %s", task.exception())
 
     async def close_async(self) -> None:
         """Close both HTTP clients, awaiting a clean async shutdown."""
@@ -110,15 +152,61 @@ class RemoteCollector:
             self._client.close()
             self._client = None
 
+    @property
+    def last_collected_at(self) -> float:
+        """Unix time of the last successful fetch (0.0 if none yet)."""
+        return self._last_collected_at
+
+    @property
+    def active_modules(self) -> frozenset[str]:
+        """Modules the upstream agent reports, from its ``/health``.
+
+        Falls back to the full set until the agent has been asked, so a module
+        is never wrongly reported as unmonitored.
+        """
+        if self._active_modules is not None:
+            return self._active_modules
+        try:
+            resp = self._get_client().get(f"{self.base_url}/health", headers=self._headers())
+            resp.raise_for_status()
+            modules = resp.json().get("active_modules")
+        except Exception:
+            log.debug("Could not read active_modules from the agent", exc_info=True)
+            return _ALL_MODULES
+        if not isinstance(modules, list):
+            return _ALL_MODULES
+        self._active_modules = frozenset(str(m) for m in modules)
+        return self._active_modules
+
+    async def collect_module_async(self, name: str) -> Any:
+        """Fetch one module from the agent.
+
+        Returns ``None`` for a module the agent does not serve, matching
+        ``Collector.collect_module`` so callers can tell "not monitored" from a
+        genuine all-zero reading.
+        """
+        client = await self._get_async_client()
+        resp = await client.get(
+            f"{self.base_url}/api/v1/{name}",
+            headers=self._headers(),
+            params=_FULL_SNAPSHOT,
+        )
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json().get("data")
+
     def collect(self) -> SystemSnapshot:
         """Synchronous fetch of a remote snapshot using a persistent client."""
         client = self._get_client()
         resp = client.get(
             f"{self.base_url}/api/v1/snapshot",
             headers=self._headers(),
+            params=_FULL_SNAPSHOT,
         )
         resp.raise_for_status()
         data = resp.json()
+        self._last_collected_at = time.time()
         return self._parse(data)
 
     async def collect_async(self) -> SystemSnapshot:
@@ -127,9 +215,11 @@ class RemoteCollector:
         resp = await client.get(
             f"{self.base_url}/api/v1/snapshot",
             headers=self._headers(),
+            params=_FULL_SNAPSHOT,
         )
         resp.raise_for_status()
         data = resp.json()
+        self._last_collected_at = time.time()
         return self._parse(data)
 
     # ── Parsing ──────────────────────────────────────────────────────

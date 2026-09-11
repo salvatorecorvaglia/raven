@@ -20,6 +20,37 @@ log = logging.getLogger(__name__)
 # Maximum stdout size from LXC commands (10 MB) to prevent OOM
 _LXC_MAX_OUTPUT = 10 * 1024 * 1024
 
+
+class _OutputTooLarge(Exception):
+    """A child process produced more output than we are willing to buffer."""
+
+
+def _read_capped(process: subprocess.Popen, limit: int, timeout: float) -> str:
+    """Read at most *limit* bytes of *process* stdout, then wait for it.
+
+    Raises ``_OutputTooLarge`` as soon as the cap is passed — the point is to
+    stop reading, not to measure afterwards — and ``subprocess.TimeoutExpired``
+    if the child outlives *timeout*.
+    """
+    assert process.stdout is not None
+    deadline = time.monotonic() + timeout
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        if time.monotonic() > deadline:
+            raise subprocess.TimeoutExpired(process.args, timeout)
+        chunk = process.stdout.read(64 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise _OutputTooLarge
+        chunks.append(chunk)
+    remaining = max(0.0, deadline - time.monotonic())
+    process.wait(timeout=remaining or 0.1)
+    return b"".join(chunks).decode("utf-8", errors="replace")
+
+
 # Overall budget for gathering per-container stats, kept well under the
 # collector's 10 s per-plugin future timeout.
 _STATS_DEADLINE = 6.0
@@ -58,10 +89,21 @@ class ContainersPlugin(MonitorPlugin):
         return True
 
     def close(self) -> None:
-        """Release the per-container-stats thread pool, if one was created."""
-        if self._stats_executor is not None:
-            self._stats_executor.shutdown(wait=False, cancel_futures=True)
-            self._stats_executor = None
+        """Release the stats thread pool and the Docker client's connections."""
+        with self._lock:
+            if self._stats_executor is not None:
+                self._stats_executor.shutdown(wait=False, cancel_futures=True)
+                self._stats_executor = None
+            if self._docker_client is not None:
+                # docker-py holds an HTTP connection pool; dropping the
+                # reference without closing it leaked those sockets for the
+                # lifetime of the process.
+                try:
+                    self._docker_client.close()
+                except Exception:
+                    log.debug("Docker client close() failed", exc_info=True)
+                self._docker_client = None
+                self._docker_ok = None
 
     def collect(self) -> ContainerMetrics:
         with self._lock:
@@ -232,23 +274,24 @@ class ContainersPlugin(MonitorPlugin):
             process = subprocess.Popen(
                 ["lxc", "list", "--format", "json"],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+                stderr=subprocess.DEVNULL,
+                text=False,
             )
             try:
-                # Read output and wait with a timeout of 5 seconds
-                stdout, stderr = process.communicate(timeout=5)
-                # Check maximum size of output
-                if len(stdout.encode("utf-8", errors="ignore")) > _LXC_MAX_OUTPUT:
-                    log.warning(
-                        "LXC output exceeded %d bytes",
-                        _LXC_MAX_OUTPUT,
-                    )
-                    return containers
+                # Bounded read, not communicate(): communicate() buffers the
+                # whole of stdout before anything could inspect its size, so
+                # checking the length afterwards could never prevent the OOM
+                # it was written to prevent. Read up to the cap, then stop.
+                stdout = _read_capped(process, _LXC_MAX_OUTPUT, timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
-                stdout, stderr = process.communicate()
+                process.wait(timeout=5)
                 log.warning("LXC list command timed out")
+                return containers
+            except _OutputTooLarge:
+                process.kill()
+                process.wait(timeout=5)
+                log.warning("LXC output exceeded %d bytes — ignoring", _LXC_MAX_OUTPUT)
                 return containers
             except Exception:
                 process.kill()

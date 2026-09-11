@@ -155,6 +155,12 @@ class SensorMetrics:
 # ── Containers ───────────────────────────────────────────────────────────────
 
 
+# Docker reports "running"; LXC reports "Running", lower-cased on ingest to
+# "running"; some runtimes say "up". Four surfaces each spelled this test out
+# inline, so a fifth status would have had to be added in four places.
+RUNNING_STATUSES = frozenset({"running", "up"})
+
+
 @dataclass(frozen=True, slots=True)
 class ContainerInfo:
     name: str = ""
@@ -165,6 +171,11 @@ class ContainerInfo:
     cpu_percent: float | None = None
     memory_usage: int | None = None
     memory_limit: int | None = None
+
+    @property
+    def is_running(self) -> bool:
+        """Whether this container is currently up."""
+        return self.status.lower() in RUNNING_STATUSES
 
 
 @dataclass(frozen=True, slots=True)

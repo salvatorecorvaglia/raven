@@ -1,17 +1,16 @@
 import pytest
 
-from raven.core.collector import Collector
 from raven.core.models import SystemSnapshot
 
 
-def test_collector_initialization(mock_config):
-    collector = Collector(mock_config)
+def test_collector_initialization(mock_config, make_local_collector):
+    collector = make_local_collector(mock_config)
     assert len(collector.plugins) > 0
     assert collector.config == mock_config
 
 
-def test_collector_collect(mock_config):
-    collector = Collector(mock_config)
+def test_collector_collect(mock_config, make_local_collector):
+    collector = make_local_collector(mock_config)
     # Perform a real collection run on the local machine
     snapshot = collector.collect()
     assert isinstance(snapshot, SystemSnapshot)
@@ -20,15 +19,15 @@ def test_collector_collect(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_collector_collect_async(mock_config):
-    collector = Collector(mock_config)
+async def test_collector_collect_async(mock_config, make_local_collector):
+    collector = make_local_collector(mock_config)
     snapshot = await collector.collect_async()
     assert isinstance(snapshot, SystemSnapshot)
     assert snapshot.timestamp > 0
 
 
-def test_collector_ttl_caching(mock_config):
-    collector = Collector(mock_config)
+def test_collector_ttl_caching(mock_config, make_local_collector):
+    collector = make_local_collector(mock_config)
 
     snap1 = collector.collect()
     snap2 = collector.collect()
@@ -39,14 +38,14 @@ def test_collector_ttl_caching(mock_config):
     assert snap1 is not snap3
 
 
-def test_collector_collect_module(mock_config):
-    collector = Collector(mock_config)
+def test_collector_collect_module(mock_config, make_local_collector):
+    collector = make_local_collector(mock_config)
     cpu_metrics = collector.collect_module("cpu")
     assert cpu_metrics is not None
     assert hasattr(cpu_metrics, "percent_overall")
 
 
-def test_collector_failure_tolerance(mock_config):
+def test_collector_failure_tolerance(mock_config, make_local_collector):
     from raven.core.models import CpuMetrics
 
     class FailingPlugin:
@@ -57,7 +56,7 @@ def test_collector_failure_tolerance(mock_config):
         def collect(self):
             raise RuntimeError("Dummy collect failure")
 
-    collector = Collector(mock_config)
+    collector = make_local_collector(mock_config)
     collector.plugins = [FailingPlugin()]
 
     snapshot = collector.collect()

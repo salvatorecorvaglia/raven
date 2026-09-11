@@ -27,23 +27,10 @@
     let prevNetTime = 0;
     let prevIfaceData = {};
     let lastSnapshot = null;
-    // Mirrors PROCESS_SORT_KEYS in raven/core/sort.py: same key names, same
-    // field mapping, same default direction. The table used to sort on raw
-    // field names with its own rules, so clicking "Name" here ordered
-    // differently from pressing `p` in the TUI on the same host.
-    const SORT_KEYS = {
-        pid: { field: "pid", descending: false },
-        name: { field: "name", descending: false },
-        user: { field: "username", descending: false },
-        cpu: { field: "cpu_percent", descending: true },
-        memory: { field: "memory_percent", descending: true },
-        rss: { field: "memory_rss", descending: true },
-        threads: { field: "num_threads", descending: true },
-    };
-    const DEFAULT_SORT_BY = "cpu";
-
-    let sortKey = DEFAULT_SORT_BY;
-    let sortAsc = !SORT_KEYS[DEFAULT_SORT_BY].descending;
+    // SORT_KEYS / DEFAULT_SORT_BY come from lib.js, which mirrors
+    // PROCESS_SORT_KEYS in raven/core/sort.py.
+    let sortKey = null;
+    let sortAsc = true;
     // null until /health answers; then the set of modules this agent monitors.
     let activeModules = null;
     let reconnectAttempts = 0;
@@ -58,6 +45,10 @@
         partitions: 5, interfaces: 5, temperatures: 6,
         fans: 4, containers: 8, users: 5,
     };
+    // Defaults only: /health ships the agent's real thresholds so this page
+    // colours a reading exactly the way the TUI and `raven print` do, rather
+    // than keeping a second copy in step by comment.
+    let thresholds = { percent: [50, 80], temp: [70, 85] };
 
     // Cards whose data comes from a single module, so a disabled module can be
     // labelled "not monitored" rather than rendering a misleading zero.
@@ -82,39 +73,9 @@
     }
 
     // ── Utilities ───────────────────────────────────────────────────────
-    function escapeHtml(str) {
-        const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-        return String(str).replace(/[&<>"']/g, (c) => map[c]);
-    }
-
-    // NOT encryption. This is a light obfuscation so the key is not sitting in
-    // storage as readable plaintext; the salt ships in this file, so anyone
-    // with devtools or an XSS foothold can recover the key. The real controls
-    // are serving over HTTPS and keeping the key out of URLs.
-    function obfuscateKey(text) {
-        if (!text) return "";
-        const salt = "raven_obfuscation_salt";
-        let result = "";
-        for (let i = 0; i < text.length; i++) {
-            result += String.fromCharCode(text.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
-        }
-        return btoa(result);
-    }
-
-    function deobfuscateKey(ciphertext) {
-        if (!ciphertext) return "";
-        try {
-            const decoded = atob(ciphertext);
-            const salt = "raven_obfuscation_salt";
-            let result = "";
-            for (let i = 0; i < decoded.length; i++) {
-                result += String.fromCharCode(decoded.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
-            }
-            return result;
-        } catch (e) {
-            return ciphertext;
-        }
-    }
+    // No escapeHtml here on purpose: every host-supplied value reaches the DOM
+    // through textContent, which cannot execute markup. A helper invites the
+    // string-concatenation habit that would make one necessary.
 
     // Session-only by default: the key dies with the tab unless the user
     // explicitly opts into persisting it on this device.
@@ -138,40 +99,39 @@
         localStorage.removeItem("raven_api_key");
     }
 
-    function humanBytes(bytes) {
-        const units = ["B", "KB", "MB", "GB", "TB"];
-        let i = 0;
-        let val = bytes;
-        while (Math.abs(val) >= 1024 && i < units.length - 1) {
-            val /= 1024;
-            i++;
-        }
-        return val.toFixed(1) + " " + units[i];
+    // ── Shared pure helpers ─────────────────────────────────────────────
+    // Defined in lib.js so they can be unit tested; app.js itself is a DOM and
+    // WebSocket shell that cannot be exercised without a browser.
+    const {
+        humanBytes,
+        humanBytesCompact,
+        humanBytesRate,
+        computeRate,
+        formatUptime,
+        SORT_KEYS,
+        DEFAULT_SORT_BY,
+        sortProcesses,
+        isRunningContainer,
+        reconnectDelay,
+        obfuscateKey,
+        deobfuscateKey,
+    } = window.RavenLib;
+
+    sortKey = DEFAULT_SORT_BY;
+    sortAsc = !SORT_KEYS[DEFAULT_SORT_BY].descending;
+
+    // Thresholds are agent-supplied (see /health), so these wrap the pure
+    // versions with the values currently in force.
+    function classForPercent(pct) {
+        return window.RavenLib.classForPercent(pct, thresholds.percent);
     }
 
-    // Matches human_bytes_compact() in raven/core/utils.py — the process table
-    // is dense enough that "83MB" reads better than "83.4 MB".
-    function humanBytesCompact(bytes) {
-        const units = ["B", "KB", "MB", "GB", "TB"];
-        let i = 0;
-        let val = bytes;
-        while (Math.abs(val) >= 1024 && i < units.length - 1) {
-            val /= 1024;
-            i++;
-        }
-        return (val >= 1 ? val.toFixed(0) : val.toFixed(1)) + units[i];
+    function bgClassForPercent(pct) {
+        return window.RavenLib.bgClassForPercent(pct, thresholds.percent);
     }
 
-    // Convert to rating
-    function humanBytesRate(bytes) {
-        return humanBytes(bytes) + "/s";
-    }
-
-    // Bytes/second between two cumulative counter readings.
-    // Returns 0 when there is no usable baseline, or when the counter reset.
-    function computeRate(current, previous, dtSeconds) {
-        if (!(dtSeconds > 0.1)) return 0;
-        return Math.max(0, (current - previous) / dtSeconds);
+    function classForTemp(celsius, high, critical) {
+        return window.RavenLib.classForTemp(celsius, high, critical, thresholds.temp);
     }
 
     // Says how many rows a display limit hid. Lives in a sibling of the list,
@@ -187,41 +147,6 @@
             note.textContent = "";
             note.hidden = true;
         }
-    }
-
-    function classForPercent(pct) {
-        if (pct < 50) return "metric-ok";
-        if (pct < 80) return "metric-warn";
-        return "metric-crit";
-    }
-
-    function bgClassForPercent(pct) {
-        if (pct < 50) return "bg-ok";
-        if (pct < 80) return "bg-warn";
-        return "bg-crit";
-    }
-
-    // Temperatures are °C, not percentages: prefer the sensor's own high /
-    // critical trip points and only fall back to a fixed 70/85 °C scale.
-    function classForTemp(celsius, high, critical) {
-        if (critical && celsius >= critical) return "metric-crit";
-        if (high && celsius >= high) return "metric-warn";
-        if (!high && !critical) {
-            if (celsius >= 85) return "metric-crit";
-            if (celsius >= 70) return "metric-warn";
-        }
-        return "metric-ok";
-    }
-
-    function formatUptime(seconds) {
-        const d = Math.floor(seconds / 86400);
-        const h = Math.floor((seconds % 86400) / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        let parts = [];
-        if (d > 0) parts.push(d + "d");
-        parts.push(h + "h");
-        parts.push(m + "m");
-        return parts.join(" ");
     }
 
     const EMPTY_LABELS = Array.from({ length: MAX_HISTORY }, () => "");
@@ -384,10 +309,13 @@
             (cpu.core_count_physical || "?") + "P / " + (cpu.core_count_logical || "?") + "L";
         document.getElementById("cpu-freq").textContent =
             cpu.frequency_current_mhz ? cpu.frequency_current_mhz.toFixed(0) + " MHz" : "—";
-        document.getElementById("cpu-load").textContent =
-            cpu.load_avg_1 != null
-                ? cpu.load_avg_1.toFixed(2) + " / " + cpu.load_avg_5.toFixed(2) + " / " + cpu.load_avg_15.toFixed(2)
-                : "—";
+        // All three or none: a platform reporting a partial tuple would throw
+        // on .toFixed() of null. Mirrors the same guard in cpu_widget.py.
+        const hasLoad =
+            cpu.load_avg_1 != null && cpu.load_avg_5 != null && cpu.load_avg_15 != null;
+        document.getElementById("cpu-load").textContent = hasLoad
+            ? cpu.load_avg_1.toFixed(2) + " / " + cpu.load_avg_5.toFixed(2) + " / " + cpu.load_avg_15.toFixed(2)
+            : "—";
 
         // Core bars
         const coreBars = document.getElementById("cpu-core-bars");
@@ -633,7 +561,7 @@
             tempContainer.innerHTML = "";
         }
         showMoreNote(
-            "temp-list", (sensors.temperatures || []).length - temps.length, "sensors"
+            "temp-list", (sensors.temperatures || []).length - temps.length, "temperatures"
         );
 
         // Fans
@@ -748,7 +676,7 @@
                 '<div class="empty-note">No container runtime detected</div>';
             return;
         }
-        const running = containers.filter((c) => c.status === "running" || c.status === "up").length;
+        const running = containers.filter(isRunningContainer).length;
         document.getElementById("container-count").textContent = running + " / " + containers.length;
 
         const container = document.getElementById("container-list");
@@ -775,7 +703,7 @@
                 const statusEl = row.querySelector(".container-status");
                 const imageEl = row.querySelector(".container-image");
 
-                const isRunning = c.status === "running" || c.status === "up";
+                const isRunning = isRunningContainer(c);
 
                 runtimeEl.textContent = c.runtime;
                 nameEl.textContent = c.name;
@@ -790,6 +718,29 @@
         }
     }
 
+    // How the agent ranked the list before truncating it. Sorting here can
+    // only reorder what arrived, so any other key is a sort *within* that
+    // slice, not a true ranking of the host — say so rather than implying
+    // "top 25 by RSS" when it is "top 25 by CPU, reordered by RSS".
+    let agentSortBy = DEFAULT_SORT_BY;
+
+    function updateProcessNote(shown, total) {
+        const note = document.getElementById("process-note");
+        if (!note) return;
+        if (total > shown && sortKey !== agentSortBy) {
+            note.textContent =
+                `Showing ${shown} of ${total} — ranked by ${agentSortBy} on the agent, ` +
+                `then sorted by ${sortKey} here.`;
+            note.hidden = false;
+        } else if (total > shown) {
+            note.textContent = `Showing ${shown} of ${total}, ranked by ${agentSortBy}.`;
+            note.hidden = false;
+        } else {
+            note.textContent = "";
+            note.hidden = true;
+        }
+    }
+
     function updateProcesses(snap) {
         const procs = snap.processes || [];
         // process_count is the host total; procs is truncated for display.
@@ -798,17 +749,7 @@
 
         // Sort. sort_processes() lower-cases before comparing names, so this
         // must too or the two dashboards interleave differently.
-        const spec = SORT_KEYS[sortKey] || SORT_KEYS[DEFAULT_SORT_BY];
-        const direction = sortAsc ? 1 : -1;
-        const sorted = [...procs].sort((a, b) => {
-            const va = a[spec.field];
-            const vb = b[spec.field];
-            if (typeof va === "string" || typeof vb === "string") {
-                return direction * String(va || "").toLowerCase()
-                    .localeCompare(String(vb || "").toLowerCase());
-            }
-            return direction * ((va || 0) - (vb || 0));
-        });
+        const sorted = sortProcesses(procs, sortKey, sortAsc);
 
         // Update header sort indicators
         document.querySelectorAll("#process-table th[data-sort]").forEach((th) => {
@@ -876,6 +817,8 @@
 
             statusEl.textContent = (p.status || "").substring(0, 10);
         });
+
+        updateProcessNote(showProcs.length, total);
     }
 
     // ── Process table sorting ───────────────────────────────────────────
@@ -963,14 +906,40 @@
     function scheduleReconnect(badge) {
         if (reconnectAttempts >= RECONNECT_MAX_ATTEMPTS) {
             badge.textContent = "Disconnected";
-            badge.title = "Server unreachable. Reload the page to retry.";
+            badge.title = "Server unreachable.";
+            // Telling someone to reload is a dead end when a click will do.
+            showRetryButton();
             return;
         }
-        const delay = Math.min(RECONNECT_DELAY * 2 ** reconnectAttempts, RECONNECT_MAX_DELAY);
+        const delay = reconnectDelay(
+            reconnectAttempts, RECONNECT_DELAY, RECONNECT_MAX_DELAY, RECONNECT_MAX_ATTEMPTS
+        );
         reconnectAttempts += 1;
         badge.textContent = `Reconnecting in ${Math.round(delay / 1000)}s…`;
         clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(connect, delay);
+    }
+
+    function showRetryButton() {
+        const badge = document.getElementById("status-badge");
+        if (!badge || document.getElementById("retry-btn")) return;
+        const btn = document.createElement("button");
+        btn.id = "retry-btn";
+        btn.className = "retry-btn";
+        btn.type = "button";
+        btn.textContent = "Retry";
+        btn.addEventListener("click", () => {
+            reconnectAttempts = 0;
+            btn.remove();
+            badge.textContent = "Connecting…";
+            connect();
+        });
+        badge.insertAdjacentElement("afterend", btn);
+    }
+
+    function hideRetryButton() {
+        const btn = document.getElementById("retry-btn");
+        if (btn) btn.remove();
     }
 
     function connect() {
@@ -1001,13 +970,15 @@
             // Send API key as first message (avoids leaking in URL/logs)
             ws.send(apiKey);
 
+            // Not "Live" yet: the server has not validated the key. Saying so
+            // here flashed a connected badge at a user whose key was about to
+            // be rejected.
             const badge = document.getElementById("status-badge");
-            badge.textContent = "Live";
+            badge.textContent = "Authenticating…";
             badge.title = "";
-            badge.classList.add("connected");
             document.body.classList.remove("disconnected");
             reconnectAttempts = 0;
-            hadSuccessfulAuth = true;
+            hideRetryButton();
             hideAuthModal();
 
             // Fetch version, active modules and the server's default theme
@@ -1024,6 +995,13 @@
                     if (d.display_limits) {
                         displayLimits = { ...displayLimits, ...d.display_limits };
                     }
+                    if (d.thresholds) {
+                        thresholds = { ...thresholds, ...d.thresholds };
+                    }
+                    if (d.sort_by && SORT_KEYS[d.sort_by]) {
+                        agentSortBy = d.sort_by;
+                        if (lastSnapshot) updateProcesses(lastSnapshot);
+                    }
                     // Server default only applies when the user has no saved choice.
                     if (!localStorage.getItem("theme") && d.theme === "light") {
                         document.body.classList.add("light-theme");
@@ -1036,6 +1014,16 @@
         ws.onmessage = (event) => {
             try {
                 const snap = JSON.parse(event.data);
+                // First frame = the key was accepted. Setting this in onopen
+                // meant a first-attempt wrong key got the "your key may have
+                // changed" message meant for a rotated one.
+                if (!hadSuccessfulAuth) {
+                    hadSuccessfulAuth = true;
+                    const badge = document.getElementById("status-badge");
+                    badge.textContent = "Live";
+                    badge.title = "";
+                    badge.classList.add("connected");
+                }
                 lastSnapshot = snap;
                 updateHeader(snap);
                 updateCpu(snap);

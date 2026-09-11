@@ -8,8 +8,10 @@ Usage::
 from __future__ import annotations
 
 import datetime
+from typing import Any
 
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 
 from raven.config import RavenConfig
@@ -40,14 +42,22 @@ def _color_percent(percent: float) -> str:
     return f"[{color}]{percent:.1f}%[/{color}]"
 
 
-def run_fetch(config: RavenConfig | None = None) -> None:
-    """Print a quick system summary to the console."""
+def run_fetch(config: RavenConfig | None = None, collector: Any = None) -> None:
+    """Print a quick system summary to the console.
+
+    *collector* lets the CLI pass a ``RemoteCollector`` so ``raven --remote
+    HOST fetch`` summarises the remote agent instead of this machine.  When it
+    is supplied the caller owns its lifecycle; a locally built one is closed
+    here, since ``fetch`` is a one-shot command.
+    """
     console = Console()
-    collector = Collector(config)
+    owns_collector = collector is None
+    collector = collector or Collector(config)
     try:
         snap = collector.collect()
     finally:
-        collector.close()  # release the thread pool; fetch is a one-shot command
+        if owns_collector:
+            collector.close()  # release the thread pool
 
     si = snap.system_info
     cpu = snap.cpu
@@ -61,10 +71,15 @@ def run_fetch(config: RavenConfig | None = None) -> None:
 
     # Build info lines
     lines: list[str] = []
-    lines.append(f"[bold cyan]{si.username}[/bold cyan]@[bold cyan]{si.hostname}[/bold cyan]")
+    lines.append(
+        f"[bold cyan]{escape(si.username)}[/bold cyan]@[bold cyan]{escape(si.hostname)}[/bold cyan]"
+    )
     lines.append(f"[dim]{'─' * 30}[/dim]")
-    lines.append(f"[bold]OS[/bold]       {si.os_name} {si.os_version} ({si.architecture})")
-    lines.append(f"[bold]Kernel[/bold]   {si.kernel}")
+    lines.append(
+        f"[bold]OS[/bold]       {escape(si.os_name)} {escape(si.os_version)} "
+        f"({escape(si.architecture)})"
+    )
+    lines.append(f"[bold]Kernel[/bold]   {escape(si.kernel)}")
     lines.append(f"[bold]Uptime[/bold]   {uptime}")
 
     # CPU
@@ -76,7 +91,7 @@ def run_fetch(config: RavenConfig | None = None) -> None:
     )
 
     # Load average
-    if cpu.load_avg_1 is not None:
+    if None not in (cpu.load_avg_1, cpu.load_avg_5, cpu.load_avg_15):
         load_str = (
             f"[bold]Load[/bold]     {cpu.load_avg_1:.2f}  "
             f"{cpu.load_avg_5:.2f}  {cpu.load_avg_15:.2f}"
@@ -101,7 +116,7 @@ def run_fetch(config: RavenConfig | None = None) -> None:
         dp = disk.partitions[0]
         lines.append(
             f"[bold]Disk[/bold]     {human_bytes(dp.used)} / {human_bytes(dp.total)}"
-            f" — {_color_percent(dp.percent)}  ({dp.mountpoint})"
+            f" — {_color_percent(dp.percent)}  ({escape(dp.mountpoint)})"
         )
 
     # Network (first non-loopback interface with an address)
@@ -109,17 +124,17 @@ def run_fetch(config: RavenConfig | None = None) -> None:
         if iface.name.startswith("lo"):
             continue
         if iface.addrs:
-            lines.append(f"[bold]Network[/bold]  {iface.name}  {iface.addrs[0]}")
+            lines.append(f"[bold]Network[/bold]  {escape(iface.name)}  {escape(iface.addrs[0])}")
             break
 
     # Temperatures
     if sensors.temperatures:
-        temp_strs = [f"{t.label}: {t.current:.0f}°C" for t in sensors.temperatures[:4]]
+        temp_strs = [f"{escape(t.label)}: {t.current:.0f}°C" for t in sensors.temperatures[:4]]
         lines.append(f"[bold]Temps[/bold]    {', '.join(temp_strs)}")
 
     # Fans
     if sensors.fans:
-        fan_strs = [f"{f.label}: {f.current} RPM" for f in sensors.fans[:3]]
+        fan_strs = [f"{escape(f.label)}: {f.current} RPM" for f in sensors.fans[:3]]
         lines.append(f"[bold]Fans[/bold]     {', '.join(fan_strs)}")
 
     # Battery
@@ -133,7 +148,7 @@ def run_fetch(config: RavenConfig | None = None) -> None:
     # Containers
     docker_count = sum(1 for c in containers.containers if c.runtime == "docker")
     lxc_count = sum(1 for c in containers.containers if c.runtime == "lxc")
-    running = sum(1 for c in containers.containers if c.status in ("running", "up"))
+    running = sum(1 for c in containers.containers if c.is_running)
     if docker_count or lxc_count:
         parts = []
         if docker_count:
@@ -145,7 +160,7 @@ def run_fetch(config: RavenConfig | None = None) -> None:
 
     # Users
     if snap.users:
-        user_names = list({u.name for u in snap.users})
+        user_names = list({escape(u.name) for u in snap.users})
         lines.append(f"[bold]Users[/bold]    {', '.join(user_names)}")
 
     # Processes count — the host total, not the truncated display list

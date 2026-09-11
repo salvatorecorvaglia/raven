@@ -56,6 +56,28 @@ def make_collector():
 
 
 @pytest.fixture
+def make_local_collector():
+    """Build real ``Collector`` instances that are always closed afterwards.
+
+    Constructing one directly in a test leaves its thread pool (and, before the
+    weak-set change, an atexit handler) alive for the rest of the session.
+    """
+    from raven.core.collector import Collector
+
+    created = []
+
+    def _make(config=None):
+        collector = Collector(config)
+        created.append(collector)
+        return collector
+
+    yield _make
+
+    for collector in created:
+        collector.close()
+
+
+@pytest.fixture
 def mock_config():
     return RavenConfig(
         general=GeneralConfig(refresh_interval=1.0),
