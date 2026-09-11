@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `raven/core/broadcast.py`, isolating WebSocket fan-out and connection lifecycle management into `BroadcastHub`. Features per-client send timeouts (`WS_SEND_TIMEOUT`), a concurrent client cap (`MAX_WEBSOCKET_CLIENTS`), and a resilient broadcast loop that survives individual failed cycles without terminating the streaming server.
+- Added a Vitest test suite for the Web Dashboard (`tests/web/dashboard.test.js`, `tests/web/lib.test.js`, `tests/web/render.test.js`) executed with `jsdom`, accompanied by a dedicated `web-test` workflow in GitHub Actions CI.
+- Added `raven/web/static/lib.js` as a UMD module containing pure formatting, sorting, rate calculation, container status checks, and key obfuscation utilities shared between the Web Dashboard and the Vitest test suite without requiring a build step.
+- Added wire snapshot trimming via `serialize_snapshot()` in `raven/core/api.py`: drops unrendered `cmdline` data (~70% payload reduction) and caps processes to `max_display` for browser dashboards and WebSocket frames, while introducing `?full=true` for remote CLI clients needing complete exports.
+- Added `set_collect_cmdline` to `Collector` and `ProcessesPlugin`, making command-line data collection opt-in (requested only by CSV and JSON exporters) and avoiding costly per-process filesystem reads during routine monitoring.
+- Expanded the `MetricCollector` protocol (`raven/core/protocols.py`) to include `active_modules`, `last_collected_at`, and `collect_module_async`. Updated `RemoteCollector` (`raven/remote/client.py`) to satisfy this full protocol, automatically discovering `active_modules` via upstream `/health` and querying `?full=true` snapshots.
+- Added remote agent support to `raven fetch` (`raven --remote <addr> fetch`), displaying a live formatted console summary of a remote host.
+- Added `RemoteUnavailable` error handling in `raven/cli.py`, providing actionable diagnostics (such as prompting for an API key on HTTP 401) instead of raw tracebacks when remote agents fail or reject connections.
+- Added CLI module validation in `raven print --modules`, rejecting unrecognized module names with a list of valid modules rather than silently outputting nothing.
+- Added CLI guard preventing `--remote` usage with `raven web` and `raven serve`, surfacing an informative error explaining that server commands must run directly on the host being monitored.
+- Added interactive theme toggling in the TUI (`t` key) to switch between light and dark themes on the fly.
+- Added a visual `.stale` dashboard state in `dashboard.tcss` (reduced opacity and warning-colored header border) in the TUI when collection fails, paired with single-event transition toasts instead of spamming warning notifications on every tick.
+- Added a "Retry" button beside the Web Dashboard status badge when reconnection backoff attempts are exhausted, avoiding requiring a full page refresh.
+- Added an explanatory status note (`#process-note`) below the Web Dashboard process table clarifying when rows are truncated and indicating agent ranking vs local browser sorting.
+- Added `sort_by` and severity `thresholds` (`percent` and `temp`) to the `/health` endpoint payload, ensuring the Web Dashboard dynamically mirrors the agent's configured ranking and alert thresholds.
+- Added `ContainerInfo.is_running` property and `RUNNING_STATUSES` constant in `raven/core/models.py` to standardize container running state detection across the TUI, Web Dashboard, and console fetch summary.
+
+### Changed
+
+- `CpuPlugin` now samples CPU utilization by comparing against its own instance-retained `cpu_times` reading (`_percentages()`), rather than relying on `psutil.cpu_percent(interval=0)`. Because the collector executes plugins across rotating worker threads in a pool, `psutil`'s thread-local baseline previously reported 0.0% or inaccurate intervals whenever a plugin landed on a different thread.
+- `ProcessesPlugin` now returns a `ProcessListing` (a `list` subclass carrying `.total`), ensuring the host's untruncated process count travels atomically with the snapshot rather than being read off the plugin object from another thread.
+- Reordered HTTP middleware in `raven/core/api.py` so security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`) are applied outermost, guaranteeing they are attached even when requests fail authentication with HTTP 401.
+- Expanded `_is_public_bind` in `raven/core/api.py` using Python's `ipaddress` module to detect IPv6 wildcards (`::`), empty strings, and explicit non-loopback addresses, ensuring `warn_open_bind` triggers for all insecure interfaces without an API key.
+- Nested list serialization in CSV export (`csv_export.py`) now derives safety caps from `EXPORT_LIMITS` via `_nested_cap`, aligning partition and interface limits with `text_export.py`.
+- Rich console markup in `raven/fetch.py` is now escaped with `rich.markup.escape()` across user names, hostnames, OS info, mountpoints, interface names, and sensor labels to prevent markup parsing errors.
+- Web Dashboard status badge now shows "Authenticating…" upon WebSocket connection and delays the "Live" state until the first frame confirms the API key was accepted.
+
+### Fixed
+
+- Fixed `Collector._inflight` task management in `raven/core/collector.py`: completed futures are no longer reused on subsequent cycles (which previously replayed stale data and halved effective refresh rate), and finished tasks are pruned in a `finally` block to prevent pinning completed future objects.
+- Fixed asynchronous collection methods (`collect_async`, `collect_module_async`, `collect_processes_async`) blocking the default event loop executor by redirecting them to the collector's dedicated `_async_executor`.
+- Fixed memory and callback accumulation in `Collector` by replacing repeated `atexit.register` calls with a module-level set of weak references (`_LIVE_COLLECTORS`).
+- Fixed plugin loader `_load_plugin_module` in `raven/core/plugin_manager.py` to only load `MonitorPlugin` subclasses defined directly within the target module (`obj.__module__ == fqn`), preventing imported sibling plugin classes from being loaded mistakenly.
+- Fixed Docker connection pool leak in `ContainersPlugin.close()` by explicitly closing `_docker_client`.
+- Fixed potential out-of-memory denial of service in `ContainersPlugin` LXC inspection: replaced `subprocess.Popen.communicate()` with a streaming bounded reader `_read_capped()` that aborts if output exceeds `_LXC_MAX_OUTPUT` (10 MB).
+- Fixed unhandled cleanup task cancellations and exceptions in `RemoteCollector.close()`, logging warnings if background connection closure fails.
+- Fixed palette memory leak in `raven/tui/theme.py`: converted the module-level `_cache` into a `weakref.WeakKeyDictionary` keyed by app instance.
+- Fixed potential `TypeError` when formatting load averages in `text_export.py`, `fetch.py`, and `CpuWidget` on platforms that report partial or `None` load average tuples.
+- Fixed "+N more" label in `SensorWidget` and Web Dashboard temperature list to accurately display "+N more temperatures" instead of "+N more sensors".
+
 ## [1.3.0] - 2026-09-05
 
 ### Added
