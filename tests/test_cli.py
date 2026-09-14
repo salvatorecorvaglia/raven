@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from raven.cli import main, remote_address_type
+from sentinella.cli import main, remote_address_type
 
 
 def test_remote_address_validation_valid():
@@ -27,38 +27,38 @@ def test_remote_address_validation_invalid():
 
 
 def test_cli_subcommands_routing():
-    with patch("raven.cli._cmd_tui") as mock_tui:
+    with patch("sentinella.cli._cmd_tui") as mock_tui:
         main([])
         mock_tui.assert_called_once()
 
-    with patch("raven.fetch.run_fetch") as mock_fetch:
+    with patch("sentinella.fetch.run_fetch") as mock_fetch:
         main(["fetch"])
         mock_fetch.assert_called_once()
 
-    with patch("raven.cli._cmd_print") as mock_print:
+    with patch("sentinella.cli._cmd_print") as mock_print:
         main(["print", "cpu", "-f", "json"])
         mock_print.assert_called_once()
 
-    with patch("raven.cli._cmd_web") as mock_web:
+    with patch("sentinella.cli._cmd_web") as mock_web:
         main(["web", "--host", "127.0.0.1", "-p", "8080"])
         mock_web.assert_called_once()
 
-    with patch("raven.cli._cmd_serve") as mock_serve:
+    with patch("sentinella.cli._cmd_serve") as mock_serve:
         main(["serve", "--host", "0.0.0.0", "-p", "9090"])
         mock_serve.assert_called_once()
 
 
 def test_cli_remote_collector_key_propagation(dummy_snapshot):
-    from raven.config import RavenConfig, RemoteConfig
+    from sentinella.config import RemoteConfig, SentinellaConfig
 
-    mock_cfg = RavenConfig(remote=RemoteConfig(api_key="super-secret"))
-    with patch("raven.cli.load_config", return_value=mock_cfg):
-        with patch("raven.remote.client.RemoteCollector") as mock_rc:
+    mock_cfg = SentinellaConfig(remote=RemoteConfig(api_key="super-secret"))
+    with patch("sentinella.cli.load_config", return_value=mock_cfg):
+        with patch("sentinella.remote.client.RemoteCollector") as mock_rc:
             mock_rc.return_value.collect.return_value = dummy_snapshot
             main(["--remote", "localhost:9090", "print"])
             mock_rc.assert_called_once_with("localhost:9090", api_key="super-secret")
 
-        with patch("raven.remote.client.RemoteCollector") as mock_rc:
-            with patch("raven.tui.app.RavenApp"):
+        with patch("sentinella.remote.client.RemoteCollector") as mock_rc:
+            with patch("sentinella.tui.app.SentinellaApp"):
                 main(["--remote", "localhost:9090"])
                 mock_rc.assert_called_once_with("localhost:9090", api_key="super-secret")

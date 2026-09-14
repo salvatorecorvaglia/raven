@@ -89,7 +89,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          name: Raven ${{ github.ref_name }}
+          name: Sentinella ${{ github.ref_name }}
           body: ${{ steps.extract_changelog.outputs.body }}
           files: |
             dist/*.tar.gz

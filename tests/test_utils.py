@@ -1,6 +1,6 @@
 from rich.text import Text
 
-from raven.core.utils import (
+from sentinella.core.utils import (
     color_for_percent,
     human_bytes,
     human_bytes_compact,

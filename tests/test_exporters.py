@@ -1,10 +1,10 @@
 import dataclasses
 
-from raven.config import ProcessesConfig, RavenConfig
-from raven.core.models import ProcessInfo
-from raven.export.csv_export import CsvExporter
-from raven.export.json_export import JsonExporter
-from raven.export.text_export import TextExporter
+from sentinella.config import ProcessesConfig, SentinellaConfig
+from sentinella.core.models import ProcessInfo
+from sentinella.export.csv_export import CsvExporter
+from sentinella.export.json_export import JsonExporter
+from sentinella.export.text_export import TextExporter
 
 
 def test_json_exporter(dummy_snapshot):
@@ -33,7 +33,7 @@ def test_json_csv_text_report_the_same_process_count(dummy_snapshot):
     """The same snapshot must yield the same process count regardless of
     export format — JSON used to dump up to max(100, max_display*2), and CSV
     hardcoded a cap of 5, while only text respected processes.max_display."""
-    cfg = RavenConfig(processes=ProcessesConfig(max_display=3, sort_by="cpu"))
+    cfg = SentinellaConfig(processes=ProcessesConfig(max_display=3, sort_by="cpu"))
     snap = _with_processes(dummy_snapshot, count=10)
 
     json_out = JsonExporter(cfg).format(snap)

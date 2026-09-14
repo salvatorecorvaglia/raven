@@ -1,25 +1,25 @@
-# Contributing to Raven 🐦‍⬛
+# Contributing to Sentinella 🐦‍⬛
 
-Thank you for your interest in contributing to **Raven**! We welcome contributions, bug reports, feature requests, and security improvements from the community.
+Thank you for your interest in contributing to **Sentinella**! We welcome contributions, bug reports, feature requests, and security improvements from the community.
 
 ---
 
 ## 🛠 Setting Up Your Development Environment
 
-Raven uses [uv](https://github.com/astral-sh/uv) to manage python dependencies, virtual environments, and workspace configurations.
+Sentinella uses [uv](https://github.com/astral-sh/uv) to manage python dependencies, virtual environments, and workspace configurations.
 
 ### Prerequisites
 
 - **Python**: `3.11`, `3.12`, or `3.13`.
 - **uv**: Install via curl or your package manager (see [uv installation](https://github.com/astral-sh/uv#installation)).
-- **Node.js** & **npm** *(optional)*: `Node.js 20+` (v24 recommended). Required only if developing or running tests for the Web Dashboard (`raven/web/static/` and `tests/web/`).
+- **Node.js** & **npm** *(optional)*: `Node.js 20+` (v24 recommended). Required only if developing or running tests for the Web Dashboard (`sentinella/web/static/` and `tests/web/`).
 
 ### Setup Steps
 
 1. **Fork and clone** the repository:
    ```bash
-   git clone https://github.com/your-username/raven.git
-   cd raven
+   git clone https://github.com/your-username/sentinella.git
+   cd sentinella
    ```
 
 2. **Sync the workspace dependencies and virtual environment**:

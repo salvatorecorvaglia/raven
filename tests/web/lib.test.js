@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import lib from "../../raven/web/static/lib.js";
+import lib from "../../sentinella/web/static/lib.js";
 
 const PERCENT = [50, 80];
 const TEMP = [70, 85];

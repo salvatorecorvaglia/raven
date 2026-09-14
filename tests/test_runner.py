@@ -1,4 +1,4 @@
-"""Tests for raven.core.runner.start_background_servers.
+"""Tests for sentinella.core.runner.start_background_servers.
 
 Previously had zero test references anywhere — nothing verified that web and
 remote servers actually start when enabled, that both can run simultaneously,
@@ -7,8 +7,8 @@ or that neither starts when disabled.
 
 from unittest.mock import patch
 
-from raven.config import RavenConfig, RemoteConfig, WebConfig
-from raven.core.runner import start_background_servers
+from sentinella.config import RemoteConfig, SentinellaConfig, WebConfig
+from sentinella.core.runner import start_background_servers
 
 
 class _ImmediateThread:
@@ -29,10 +29,10 @@ class _ImmediateThread:
 
 
 def test_start_background_servers_starts_web_when_enabled(make_collector, dummy_snapshot):
-    cfg = RavenConfig(web=WebConfig(enabled=True, host="127.0.0.1", port=8123))
+    cfg = SentinellaConfig(web=WebConfig(enabled=True, host="127.0.0.1", port=8123))
     with (
-        patch("raven.core.runner.uvicorn.run") as mock_run,
-        patch("raven.core.runner.threading.Thread", _ImmediateThread),
+        patch("sentinella.core.runner.uvicorn.run") as mock_run,
+        patch("sentinella.core.runner.threading.Thread", _ImmediateThread),
     ):
         start_background_servers(cfg, collector=make_collector(dummy_snapshot))
 
@@ -42,10 +42,10 @@ def test_start_background_servers_starts_web_when_enabled(make_collector, dummy_
 
 
 def test_start_background_servers_starts_remote_when_enabled(make_collector, dummy_snapshot):
-    cfg = RavenConfig(remote=RemoteConfig(enabled=True, host="127.0.0.1", port=9191))
+    cfg = SentinellaConfig(remote=RemoteConfig(enabled=True, host="127.0.0.1", port=9191))
     with (
-        patch("raven.core.runner.uvicorn.run") as mock_run,
-        patch("raven.core.runner.threading.Thread", _ImmediateThread),
+        patch("sentinella.core.runner.uvicorn.run") as mock_run,
+        patch("sentinella.core.runner.threading.Thread", _ImmediateThread),
     ):
         start_background_servers(cfg, collector=make_collector(dummy_snapshot))
 
@@ -54,13 +54,13 @@ def test_start_background_servers_starts_remote_when_enabled(make_collector, dum
 
 
 def test_start_background_servers_starts_both_independently(make_collector, dummy_snapshot):
-    cfg = RavenConfig(
+    cfg = SentinellaConfig(
         web=WebConfig(enabled=True, port=8281),
         remote=RemoteConfig(enabled=True, port=9282),
     )
     with (
-        patch("raven.core.runner.uvicorn.run") as mock_run,
-        patch("raven.core.runner.threading.Thread", _ImmediateThread),
+        patch("sentinella.core.runner.uvicorn.run") as mock_run,
+        patch("sentinella.core.runner.threading.Thread", _ImmediateThread),
     ):
         start_background_servers(cfg, collector=make_collector(dummy_snapshot))
 
@@ -70,10 +70,10 @@ def test_start_background_servers_starts_both_independently(make_collector, dumm
 
 
 def test_start_background_servers_noop_when_both_disabled(make_collector, dummy_snapshot):
-    cfg = RavenConfig()  # web/remote disabled by default
+    cfg = SentinellaConfig()  # web/remote disabled by default
     with (
-        patch("raven.core.runner.uvicorn.run") as mock_run,
-        patch("raven.core.runner.threading.Thread") as mock_thread,
+        patch("sentinella.core.runner.uvicorn.run") as mock_run,
+        patch("sentinella.core.runner.threading.Thread") as mock_thread,
     ):
         start_background_servers(cfg, collector=make_collector(dummy_snapshot))
 

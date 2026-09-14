@@ -1,6 +1,6 @@
 import pytest
 
-from raven.core.models import SystemSnapshot
+from sentinella.core.models import SystemSnapshot
 
 
 def test_collector_initialization(mock_config, make_local_collector):
@@ -46,7 +46,7 @@ def test_collector_collect_module(mock_config, make_local_collector):
 
 
 def test_collector_failure_tolerance(mock_config, make_local_collector):
-    from raven.core.models import CpuMetrics
+    from sentinella.core.models import CpuMetrics
 
     class FailingPlugin:
         name = "cpu"

@@ -1,14 +1,14 @@
 import io
 from unittest.mock import MagicMock, patch
 
-from raven.plugins.containers import ContainersPlugin
+from sentinella.plugins.containers import ContainersPlugin
 
 
 def test_containers_plugin_always_loadable():
     """The plugin stays loaded even with no runtime present.
 
     Availability is re-checked per collect() and reported through the metrics,
-    so a Docker daemon started after Raven does not require a restart.
+    so a Docker daemon started after Sentinella does not require a restart.
     """
     with patch("shutil.which", return_value=None), patch.dict("sys.modules", {"docker": None}):
         plugin = ContainersPlugin()
@@ -130,7 +130,7 @@ def test_lxc_output_over_the_cap_is_rejected_without_buffering_it_all():
     """The size guard used to run *after* communicate() had already buffered
     everything, so it could never prevent the OOM it documented. The read must
     stop at the cap instead."""
-    from raven.plugins import containers as containers_mod
+    from sentinella.plugins import containers as containers_mod
 
     class EndlessPipe:
         """A pipe that never reaches EOF, like a runaway `lxc list`."""

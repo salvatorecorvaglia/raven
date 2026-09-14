@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "raven-monitor"
+name = "sentinella-monitor"
 version = "2.0.0"
 description = "Cross-platform system monitor with TUI, web dashboard, and remote monitoring"
 readme = "README.md"
@@ -31,25 +31,25 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.10",
 ]
-all = ["raven-monitor[docker,dev]"]
+all = ["sentinella-monitor[docker,dev]"]
 
 [project.scripts]
-raven = "raven.cli:main"
+sentinella = "sentinella.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/salvatorecorvaglia/raven"
-Documentation = "https://github.com/salvatorecorvaglia/raven#readme"
+Homepage = "https://github.com/salvatorecorvaglia/sentinella"
+Documentation = "https://github.com/salvatorecorvaglia/sentinella#readme"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["raven*"]
+include = ["sentinella*"]
 
 [tool.setuptools.package-data]
-"raven" = ["py.typed"]
-"raven.tui" = ["*.tcss"]
+"sentinella" = ["py.typed"]
+"sentinella.tui" = ["*.tcss"]
 # Recursive: static/vendor/ holds the bundled Chart.js, and a non-recursive
 # "static/*" would silently drop it from the wheel.
-"raven.web" = ["static/**/*"]
+"sentinella.web" = ["static/**/*"]
 
 [tool.ruff]
 target-version = "py311"
@@ -68,11 +68,11 @@ filterwarnings = [
 
 [tool.mypy]
 python_version = "3.11"
-files = ["raven"]
+files = ["sentinella"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["raven"]
+source = ["sentinella"]
 
 [tool.coverage.report]
 # Floor, not a target — raise it as coverage improves, never lower it.

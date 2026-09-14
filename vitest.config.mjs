@@ -7,7 +7,7 @@ export default defineConfig({
         environment: "jsdom",
         include: ["tests/web/**/*.test.js"],
         coverage: {
-            include: ["raven/web/static/lib.js"],
+            include: ["sentinella/web/static/lib.js"],
         },
     },
 });

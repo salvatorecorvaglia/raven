@@ -1,15 +1,15 @@
 import pytest
 
-from raven.config import (
+from sentinella.config import (
     ExportConfig,
     GeneralConfig,
     ModulesConfig,
     ProcessesConfig,
-    RavenConfig,
     RemoteConfig,
+    SentinellaConfig,
     WebConfig,
 )
-from raven.core.models import (
+from sentinella.core.models import (
     BatteryInfo,
     ContainerMetrics,
     CpuMetrics,
@@ -62,7 +62,7 @@ def make_local_collector():
     Constructing one directly in a test leaves its thread pool (and, before the
     weak-set change, an atexit handler) alive for the rest of the session.
     """
-    from raven.core.collector import Collector
+    from sentinella.core.collector import Collector
 
     created = []
 
@@ -79,7 +79,7 @@ def make_local_collector():
 
 @pytest.fixture
 def mock_config():
-    return RavenConfig(
+    return SentinellaConfig(
         general=GeneralConfig(refresh_interval=1.0),
         modules=ModulesConfig(),
         web=WebConfig(enabled=False, host="127.0.0.1", port=8080, api_key=""),

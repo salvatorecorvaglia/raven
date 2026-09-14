@@ -4,12 +4,12 @@ import tempfile
 
 import pytest
 
-from raven.config import (
+from sentinella.config import (
     ExportConfig,
     GeneralConfig,
     ProcessesConfig,
-    RavenConfig,
     RemoteConfig,
+    SentinellaConfig,
     WebConfig,
     _dict_to_config,
     load_config,
@@ -20,7 +20,7 @@ from raven.config import (
 
 def test_default_config():
     cfg = load_config()
-    assert isinstance(cfg, RavenConfig)
+    assert isinstance(cfg, SentinellaConfig)
     assert cfg.general.refresh_interval == 2.0
     assert cfg.web.host == "127.0.0.1"
     assert cfg.remote.host == "127.0.0.1"
@@ -53,63 +53,63 @@ def test_load_explicit_config():
 
 def test_config_validation():
     # Valid config
-    valid_cfg = RavenConfig()
+    valid_cfg = SentinellaConfig()
     validate_config(valid_cfg)  # should not raise
 
     # Invalid refresh_interval
     with pytest.raises(ValueError, match="refresh_interval must be >= 1"):
-        validate_config(RavenConfig(general=GeneralConfig(refresh_interval=0)))
+        validate_config(SentinellaConfig(general=GeneralConfig(refresh_interval=0)))
 
     # Invalid theme
     with pytest.raises(ValueError, match="theme must be 'dark' or 'light'"):
-        validate_config(RavenConfig(general=GeneralConfig(theme="blue")))
+        validate_config(SentinellaConfig(general=GeneralConfig(theme="blue")))
 
     # Invalid web port
     with pytest.raises(ValueError, match="web.port must be between 1 and 65535"):
-        validate_config(RavenConfig(web=WebConfig(port=99999)))
+        validate_config(SentinellaConfig(web=WebConfig(port=99999)))
 
     # Invalid remote port
     with pytest.raises(ValueError, match="remote.port must be between 1 and 65535"):
-        validate_config(RavenConfig(remote=RemoteConfig(port=0)))
+        validate_config(SentinellaConfig(remote=RemoteConfig(port=0)))
 
     # Invalid format
     with pytest.raises(ValueError, match="export.format must be 'text', 'csv', or 'json'"):
-        validate_config(RavenConfig(export=ExportConfig(format="yaml")))
+        validate_config(SentinellaConfig(export=ExportConfig(format="yaml")))
 
     # Invalid max_display
     with pytest.raises(ValueError, match="processes.max_display must be >= 1"):
-        validate_config(RavenConfig(processes=ProcessesConfig(max_display=0)))
+        validate_config(SentinellaConfig(processes=ProcessesConfig(max_display=0)))
 
     # Invalid sort_by
     with pytest.raises(ValueError, match="processes.sort_by must be one of"):
-        validate_config(RavenConfig(processes=ProcessesConfig(sort_by="invalid")))
+        validate_config(SentinellaConfig(processes=ProcessesConfig(sort_by="invalid")))
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits only")
 def test_world_readable_config_with_api_key_warns(tmp_path, capsys):
-    cfg_file = tmp_path / "raven.toml"
+    cfg_file = tmp_path / "sentinella.toml"
     cfg_file.write_text("[web]\napi_key = 'secret'\n", encoding="utf-8")
     cfg_file.chmod(0o644)  # group/other readable
 
-    warn_insecure_config_permissions(cfg_file, RavenConfig(web=WebConfig(api_key="secret")))
+    warn_insecure_config_permissions(cfg_file, SentinellaConfig(web=WebConfig(api_key="secret")))
     assert "readable by other users" in capsys.readouterr().err
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits only")
 def test_private_config_with_api_key_does_not_warn(tmp_path, capsys):
-    cfg_file = tmp_path / "raven.toml"
+    cfg_file = tmp_path / "sentinella.toml"
     cfg_file.write_text("[web]\napi_key = 'secret'\n", encoding="utf-8")
     cfg_file.chmod(0o600)  # owner-only
 
-    warn_insecure_config_permissions(cfg_file, RavenConfig(web=WebConfig(api_key="secret")))
+    warn_insecure_config_permissions(cfg_file, SentinellaConfig(web=WebConfig(api_key="secret")))
     assert capsys.readouterr().err == ""
 
 
 def test_world_readable_config_without_api_key_does_not_warn(tmp_path, capsys):
-    cfg_file = tmp_path / "raven.toml"
+    cfg_file = tmp_path / "sentinella.toml"
     cfg_file.write_text("[general]\nrefresh_interval = 2\n", encoding="utf-8")
 
-    warn_insecure_config_permissions(cfg_file, RavenConfig())
+    warn_insecure_config_permissions(cfg_file, SentinellaConfig())
     assert capsys.readouterr().err == ""
 
 

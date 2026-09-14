@@ -1,8 +1,8 @@
 {
-  "name": "raven-web-dashboard",
+  "name": "sentinella-web-dashboard",
   "version": "0.0.0",
   "private": true,
-  "description": "Unit tests for the Raven web dashboard's client-side logic. The Python package is the project; this exists only so raven/web/static has a test runner.",
+  "description": "Unit tests for the Sentinella web dashboard's client-side logic. The Python package is the project; this exists only so sentinella/web/static has a test runner.",
   "type": "commonjs",
   "scripts": {
     "test": "vitest run",

@@ -15,20 +15,20 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from raven.cli import main
-from raven.config import (
+from sentinella.cli import main
+from sentinella.config import (
     GeneralConfig,
     ModulesConfig,
-    RavenConfig,
     RemoteConfig,
+    SentinellaConfig,
     WebConfig,
     _dict_to_config,
 )
-from raven.core.collector import Collector
-from raven.core.models import SystemSnapshot
-from raven.remote.client import RemoteCollector
-from raven.remote.server import create_remote_app
-from raven.web.server import create_app
+from sentinella.core.collector import Collector
+from sentinella.core.models import SystemSnapshot
+from sentinella.remote.client import RemoteCollector
+from sentinella.remote.server import create_remote_app
+from sentinella.web.server import create_app
 
 # ── C1: non-ASCII API keys must 401, not 500 ─────────────────────────────────
 
@@ -36,7 +36,7 @@ from raven.web.server import create_app
 def test_non_ascii_header_value_is_rejected_not_crashed():
     """Starlette decodes headers as latin-1, so a non-ASCII key can reach the
     middleware over the wire. hmac.compare_digest would raise TypeError on it."""
-    cfg = RavenConfig(web=WebConfig(api_key="secret-key"))
+    cfg = SentinellaConfig(web=WebConfig(api_key="secret-key"))
     with TestClient(create_app(cfg)) as client:
         # Sent as raw bytes: httpx refuses to ASCII-encode a non-ASCII str.
         resp = client.get("/api/v1/snapshot", headers={"X-API-Key": "wrong-clé".encode("latin-1")})
@@ -46,7 +46,7 @@ def test_non_ascii_header_value_is_rejected_not_crashed():
 def test_non_ascii_configured_key_does_not_crash_every_request():
     """A server configured with an emoji key must still answer 401, not 500 —
     the configured side of compare_digest is what raised TypeError."""
-    cfg = RavenConfig(web=WebConfig(api_key="chiave-segreta-🔑"))
+    cfg = SentinellaConfig(web=WebConfig(api_key="chiave-segreta-🔑"))
     with TestClient(create_app(cfg)) as client:
         resp = client.get("/api/v1/snapshot", headers={"X-API-Key": "guess"})
     assert resp.status_code == 401
@@ -54,7 +54,7 @@ def test_non_ascii_configured_key_does_not_crash_every_request():
 
 def test_non_ascii_key_over_websocket():
     key = "chiave-🔑"
-    cfg = RavenConfig(web=WebConfig(api_key=key))
+    cfg = SentinellaConfig(web=WebConfig(api_key=key))
     with TestClient(create_app(cfg)) as client, client.websocket_connect("/ws/live") as ws:
         ws.send_text(key)
         assert "cpu" in ws.receive_json()
@@ -107,15 +107,15 @@ def _collector_of(app):
 
 
 def test_cli_host_override_reaches_open_bind_warning():
-    """`raven web --host 0.0.0.0` with no API key must warn."""
-    from raven.cli import main
+    """`sentinella web --host 0.0.0.0` with no API key must warn."""
+    from sentinella.cli import main
 
-    cfg = RavenConfig(web=WebConfig(host="127.0.0.1", api_key=""))
+    cfg = SentinellaConfig(web=WebConfig(host="127.0.0.1", api_key=""))
     with (
-        patch("raven.cli.load_config", return_value=cfg),
-        patch("raven.cli.uvicorn.run"),
-        patch("raven.core.api.warn_open_bind") as mock_warn,
-        patch("raven.web.server.warn_open_bind") as mock_warn_web,
+        patch("sentinella.cli.load_config", return_value=cfg),
+        patch("sentinella.cli.uvicorn.run"),
+        patch("sentinella.core.api.warn_open_bind") as mock_warn,
+        patch("sentinella.web.server.warn_open_bind") as mock_warn_web,
     ):
         main(["web", "--host", "0.0.0.0"])
 
@@ -125,12 +125,12 @@ def test_cli_host_override_reaches_open_bind_warning():
 
 
 def test_cli_host_override_is_what_uvicorn_binds():
-    from raven.cli import main
+    from sentinella.cli import main
 
-    cfg = RavenConfig(web=WebConfig(host="127.0.0.1", port=8080, api_key=""))
+    cfg = SentinellaConfig(web=WebConfig(host="127.0.0.1", port=8080, api_key=""))
     with (
-        patch("raven.cli.load_config", return_value=cfg),
-        patch("raven.cli.uvicorn.run") as mock_run,
+        patch("sentinella.cli.load_config", return_value=cfg),
+        patch("sentinella.cli.uvicorn.run") as mock_run,
     ):
         main(["web", "--host", "0.0.0.0", "--port", "9999"])
     assert mock_run.call_args.kwargs["host"] == "0.0.0.0"
@@ -142,7 +142,7 @@ def test_cli_host_override_is_what_uvicorn_binds():
 
 def test_disabled_module_is_404_not_fake_zero():
     """A disabled CPU module must not be indistinguishable from an idle CPU."""
-    cfg = RavenConfig(modules=ModulesConfig(cpu=False))
+    cfg = SentinellaConfig(modules=ModulesConfig(cpu=False))
     with TestClient(create_app(cfg)) as client:
         resp = client.get("/api/v1/cpu")
     assert resp.status_code == 404
@@ -150,7 +150,7 @@ def test_disabled_module_is_404_not_fake_zero():
 
 
 def test_enabled_module_still_serves_data():
-    cfg = RavenConfig(modules=ModulesConfig(cpu=True))
+    cfg = SentinellaConfig(modules=ModulesConfig(cpu=True))
     with TestClient(create_app(cfg)) as client:
         resp = client.get("/api/v1/cpu")
     assert resp.status_code == 200
@@ -158,7 +158,7 @@ def test_enabled_module_still_serves_data():
 
 
 def test_health_advertises_active_modules():
-    cfg = RavenConfig(modules=ModulesConfig(cpu=False))
+    cfg = SentinellaConfig(modules=ModulesConfig(cpu=False))
     with TestClient(create_app(cfg)) as client:
         body = client.get("/health").json()
     assert "cpu" not in body["active_modules"]
@@ -166,7 +166,7 @@ def test_health_advertises_active_modules():
 
 
 def test_collector_active_modules_excludes_disabled(mock_config):
-    cfg = RavenConfig(modules=ModulesConfig(cpu=False, memory=True))
+    cfg = SentinellaConfig(modules=ModulesConfig(cpu=False, memory=True))
     collector = Collector(cfg)
     try:
         assert "cpu" not in collector.active_modules
@@ -227,17 +227,17 @@ async def test_remote_collector_close_from_running_loop_still_releases_client():
 
 
 def test_container_plugin_stays_loaded_without_runtime():
-    from raven.core.plugin_manager import get_enabled_plugins
+    from sentinella.core.plugin_manager import get_enabled_plugins
 
     with patch("shutil.which", return_value=None), patch.dict("sys.modules", {"docker": None}):
-        plugins = get_enabled_plugins(RavenConfig(modules=ModulesConfig(containers=True)))
+        plugins = get_enabled_plugins(SentinellaConfig(modules=ModulesConfig(containers=True)))
     assert "containers" in {p.name for p in plugins}
 
 
 def test_container_plugin_respects_config_disable():
-    from raven.core.plugin_manager import get_enabled_plugins
+    from sentinella.core.plugin_manager import get_enabled_plugins
 
-    plugins = get_enabled_plugins(RavenConfig(modules=ModulesConfig(containers=False)))
+    plugins = get_enabled_plugins(SentinellaConfig(modules=ModulesConfig(containers=False)))
     assert "containers" not in {p.name for p in plugins}
 
 
@@ -245,18 +245,18 @@ def test_container_plugin_respects_config_disable():
 
 
 def test_missing_config_file_exits_cleanly(capsys):
-    from raven.cli import main
+    from sentinella.cli import main
 
     with pytest.raises(SystemExit) as exc:
-        main(["-c", "/nonexistent/raven.toml", "fetch"])
+        main(["-c", "/nonexistent/sentinella.toml", "fetch"])
     assert exc.value.code == 2
     assert "Config file not found" in capsys.readouterr().err
 
 
 def test_invalid_config_value_exits_cleanly(tmp_path, capsys):
-    from raven.cli import main
+    from sentinella.cli import main
 
-    cfg_file = tmp_path / "raven.toml"
+    cfg_file = tmp_path / "sentinella.toml"
     cfg_file.write_text("[general]\nrefresh_interval = 0\n", encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         main(["-c", str(cfg_file), "fetch"])
@@ -265,9 +265,9 @@ def test_invalid_config_value_exits_cleanly(tmp_path, capsys):
 
 
 def test_malformed_toml_exits_cleanly(tmp_path, capsys):
-    from raven.cli import main
+    from sentinella.cli import main
 
-    cfg_file = tmp_path / "raven.toml"
+    cfg_file = tmp_path / "sentinella.toml"
     cfg_file.write_text("[general\nthis is not toml", encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         main(["-c", str(cfg_file), "fetch"])
@@ -294,9 +294,9 @@ def test_float_refresh_interval_is_accepted():
 
 
 def test_global_flags_accepted_after_subcommand(tmp_path):
-    from raven.cli import _build_parser
+    from sentinella.cli import _build_parser
 
-    cfg_file = tmp_path / "raven.toml"
+    cfg_file = tmp_path / "sentinella.toml"
     cfg_file.write_text("[general]\nrefresh_interval = 3\n", encoding="utf-8")
     parser = _build_parser()
 
@@ -307,7 +307,7 @@ def test_global_flags_accepted_after_subcommand(tmp_path):
 
 def test_subcommand_does_not_clobber_root_global_flag(tmp_path):
     """argparse parents= would reset --config to None without SUPPRESS."""
-    from raven.cli import _build_parser
+    from sentinella.cli import _build_parser
 
     args = _build_parser().parse_args(["-c", "root.toml", "print"])
     assert args.config == "root.toml"
@@ -317,10 +317,10 @@ def test_subcommand_does_not_clobber_root_global_flag(tmp_path):
 
 
 def test_websocket_client_limit_is_enforced(monkeypatch):
-    import raven.core.api as api_module
+    import sentinella.core.api as api_module
 
     monkeypatch.setattr(api_module, "MAX_WEBSOCKET_CLIENTS", 1)
-    cfg = RavenConfig(web=WebConfig(api_key=""))
+    cfg = SentinellaConfig(web=WebConfig(api_key=""))
     with TestClient(create_app(cfg)) as client:
         with client.websocket_connect("/ws/live") as first:
             first.send_text("")
@@ -334,7 +334,7 @@ def test_websocket_client_limit_is_enforced(monkeypatch):
 
 
 def test_remote_agent_health_and_auth():
-    cfg = RavenConfig(remote=RemoteConfig(api_key="agent-key"))
+    cfg = SentinellaConfig(remote=RemoteConfig(api_key="agent-key"))
     with TestClient(create_remote_app(cfg)) as client:
         assert client.get("/health").status_code == 200
         assert client.get("/api/v1/snapshot").status_code == 401
@@ -367,7 +367,7 @@ def test_collector_does_not_resubmit_a_still_running_plugin(mock_config):
             calls.append(1)
             started.set()
             release.wait(timeout=5)
-            from raven.core.models import CpuMetrics
+            from sentinella.core.models import CpuMetrics
 
             return CpuMetrics()
 
@@ -377,14 +377,14 @@ def test_collector_does_not_resubmit_a_still_running_plugin(mock_config):
     collector = Collector(mock_config)
     collector.plugins = [SlowPlugin()]
     try:
-        with patch("raven.core.collector.as_completed", side_effect=TimeoutError):
+        with patch("sentinella.core.collector.as_completed", side_effect=TimeoutError):
             collector.collect()
         assert started.wait(timeout=2), "plugin.collect() was never invoked"
         assert "cpu" in collector._inflight
         assert not collector._inflight["cpu"].done()
 
         collector._last_collected_at = 0.0  # force past the TTL cache
-        with patch("raven.core.collector.as_completed", side_effect=TimeoutError):
+        with patch("sentinella.core.collector.as_completed", side_effect=TimeoutError):
             collector.collect()
 
         assert len(calls) == 1, "hung plugin was resubmitted instead of reused"
@@ -430,7 +430,7 @@ def test_collector_collect_processes_without_processes_plugin_returns_empty(mock
 def test_containers_plugin_reuses_stats_executor_across_cycles():
     from unittest.mock import MagicMock
 
-    from raven.plugins.containers import ContainersPlugin
+    from sentinella.plugins.containers import ContainersPlugin
 
     mock_docker = MagicMock()
     mock_client = MagicMock()
@@ -474,8 +474,8 @@ def test_containers_plugin_reuses_stats_executor_across_cycles():
 
 
 def test_network_widget_prunes_interfaces_no_longer_present():
-    from raven.core.models import NetworkInterface, NetworkMetrics
-    from raven.tui.widgets.network_widget import NetworkWidget
+    from sentinella.core.models import NetworkInterface, NetworkMetrics
+    from sentinella.tui.widgets.network_widget import NetworkWidget
 
     def snap_with(names):
         return type(
@@ -513,7 +513,7 @@ def test_collector_samples_every_cycle(mock_config):
     twice.  Line coverage never caught it — the bug lives on covered lines and
     ``_assemble`` mints a new snapshot object either way.
     """
-    from raven.core.models import CpuMetrics
+    from sentinella.core.models import CpuMetrics
 
     class CountingPlugin:
         name = "cpu"
@@ -556,8 +556,8 @@ def test_broadcast_loop_survives_a_failing_cycle():
     data.  A failed cycle must be survivable."""
     from fastapi.testclient import TestClient
 
-    from raven.config import GeneralConfig, RavenConfig
-    from raven.core.api import create_base_app
+    from sentinella.config import GeneralConfig, SentinellaConfig
+    from sentinella.core.api import create_base_app
 
     calls = {"n": 0}
 
@@ -581,7 +581,7 @@ def test_broadcast_loop_survives_a_failing_cycle():
         async def close_async(self):
             pass
 
-    cfg = RavenConfig(general=GeneralConfig(refresh_interval=1.0))
+    cfg = SentinellaConfig(general=GeneralConfig(refresh_interval=1.0))
     cfg.general.refresh_interval = 0.05  # tick fast; validate_config isn't rerun
     app = create_base_app(
         config=cfg,
@@ -609,7 +609,7 @@ def test_broadcast_loop_survives_a_failing_cycle():
 
 def test_fetch_honours_remote_flag(monkeypatch):
     """``--remote`` is advertised on every subparser, but ``fetch`` always
-    built a local Collector — so ``raven --remote host fetch`` summarised the
+    built a local Collector — so ``sentinella --remote host fetch`` summarised the
     *local* machine with no indication anything was ignored."""
     seen = {}
 
@@ -624,8 +624,8 @@ def test_fetch_honours_remote_flag(monkeypatch):
         def close(self):
             seen["closed"] = True
 
-    monkeypatch.setattr("raven.remote.client.RemoteCollector", FakeRemote)
-    monkeypatch.setattr("raven.fetch.Console", lambda *a, **k: _SilentConsole())
+    monkeypatch.setattr("sentinella.remote.client.RemoteCollector", FakeRemote)
+    monkeypatch.setattr("sentinella.fetch.Console", lambda *a, **k: _SilentConsole())
 
     main(["--remote", "10.0.0.5:9090", "fetch"])
 
@@ -640,7 +640,7 @@ class _SilentConsole:
 
 @pytest.mark.parametrize("command", ["web", "serve"])
 def test_remote_with_a_server_command_is_rejected(command, capsys):
-    """Silently ignoring --remote here meant `raven --remote host serve`
+    """Silently ignoring --remote here meant `sentinella --remote host serve`
     started an agent reporting the *local* host."""
     with pytest.raises(SystemExit):
         main(["--remote", "10.0.0.5:9090", command])
@@ -690,7 +690,7 @@ def test_remote_auth_failure_names_the_api_key(monkeypatch, capsys):
         def close(self):
             pass
 
-    monkeypatch.setattr("raven.remote.client.RemoteCollector", Unauthorized)
+    monkeypatch.setattr("sentinella.remote.client.RemoteCollector", Unauthorized)
     with pytest.raises(SystemExit):
         main(["--remote", "10.0.0.5:9090", "print"])
     assert "rejected the API key" in capsys.readouterr().err
@@ -703,7 +703,7 @@ def test_security_headers_are_present_on_a_401():
     """Starlette runs the last-registered middleware first, so the auth check
     short-circuited before the header middleware ever ran — every 401 shipped
     with no CSP, nosniff, X-Frame-Options or Referrer-Policy."""
-    cfg = RavenConfig(web=WebConfig(api_key="secret"))
+    cfg = SentinellaConfig(web=WebConfig(api_key="secret"))
     with TestClient(create_app(cfg)) as client:
         resp = client.get("/api/v1/snapshot")
         assert resp.status_code == 401
@@ -717,7 +717,7 @@ def test_security_headers_are_present_on_a_401():
 
 
 def test_security_headers_still_present_when_authorised():
-    cfg = RavenConfig(web=WebConfig(api_key="secret"))
+    cfg = SentinellaConfig(web=WebConfig(api_key="secret"))
     with TestClient(create_app(cfg)) as client:
         resp = client.get("/health")
         assert resp.status_code == 200
@@ -742,20 +742,20 @@ def test_security_headers_still_present_when_authorised():
     ],
 )
 def test_open_bind_detection_covers_more_than_the_ipv4_wildcard(host, public):
-    from raven.core.api import _is_public_bind
+    from sentinella.core.api import _is_public_bind
 
     assert _is_public_bind(host) is public
 
 
 def test_open_bind_on_ipv6_wildcard_warns(capsys):
-    from raven.core.api import warn_open_bind
+    from sentinella.core.api import warn_open_bind
 
     warn_open_bind("::", "", "Remote agent")
     assert "no API key" in capsys.readouterr().err
 
 
 def test_open_bind_with_a_key_stays_quiet(capsys):
-    from raven.core.api import warn_open_bind
+    from sentinella.core.api import warn_open_bind
 
     warn_open_bind("0.0.0.0", "a-key", "Remote agent")
     assert capsys.readouterr().err == ""
@@ -769,11 +769,11 @@ def test_plugin_discovery_ignores_imported_plugin_classes():
     would silently load that one instead of its own."""
     import types
 
-    from raven.core.plugin_manager import _load_plugin_module
-    from raven.plugins.base import MonitorPlugin
-    from raven.plugins.cpu import CpuPlugin
+    from sentinella.core.plugin_manager import _load_plugin_module
+    from sentinella.plugins.base import MonitorPlugin
+    from sentinella.plugins.cpu import CpuPlugin
 
-    module = types.ModuleType("raven.plugins.zzz_fake")
+    module = types.ModuleType("sentinella.plugins.zzz_fake")
 
     class ActualPlugin(MonitorPlugin):
         name = "zzz_fake"
@@ -784,12 +784,12 @@ def test_plugin_discovery_ignores_imported_plugin_classes():
         def is_available(self):
             return True
 
-    ActualPlugin.__module__ = "raven.plugins.zzz_fake"
+    ActualPlugin.__module__ = "sentinella.plugins.zzz_fake"
     # "AaaImported" sorts before "ActualPlugin" — the old scan would win with it.
     module.AaaImported = CpuPlugin
     module.ActualPlugin = ActualPlugin
 
-    with patch.dict("sys.modules", {"raven.plugins.zzz_fake": module}):
+    with patch.dict("sys.modules", {"sentinella.plugins.zzz_fake": module}):
         assert _load_plugin_module("zzz_fake") is ActualPlugin
 
 
@@ -801,7 +801,7 @@ def test_container_plugin_close_releases_the_docker_client():
     HTTP connection pool for the life of the process."""
     from unittest.mock import MagicMock
 
-    from raven.plugins.containers import ContainersPlugin
+    from sentinella.plugins.containers import ContainersPlugin
 
     mock_docker = MagicMock()
     client = MagicMock()
@@ -823,7 +823,7 @@ def test_container_plugin_close_releases_the_docker_client():
 def test_container_plugin_close_survives_a_failing_docker_close():
     from unittest.mock import MagicMock
 
-    from raven.plugins.containers import ContainersPlugin
+    from sentinella.plugins.containers import ContainersPlugin
 
     plugin = ContainersPlugin()
     failing = MagicMock()
@@ -841,7 +841,7 @@ def test_collectors_do_not_accumulate_atexit_handlers(mock_config):
     """Each Collector used to register its own bound atexit handler, so a
     process that built collectors over time pinned every thread pool it had
     ever made."""
-    from raven.core import collector as collector_mod
+    from sentinella.core import collector as collector_mod
 
     before = len(collector_mod._LIVE_COLLECTORS)
     made = [Collector(mock_config) for _ in range(3)]
@@ -855,7 +855,7 @@ def test_collectors_do_not_accumulate_atexit_handlers(mock_config):
 def test_a_dropped_collector_is_garbage_collectable(mock_config):
     import gc
 
-    from raven.core import collector as collector_mod
+    from sentinella.core import collector as collector_mod
 
     collector = Collector(mock_config)
     ref = weakref.ref(collector)
@@ -872,7 +872,7 @@ def test_a_dropped_collector_is_garbage_collectable(mock_config):
 def test_process_total_travels_with_the_list(mock_config, make_local_collector):
     """total_count was written from a worker thread and read from the collector
     thread, so it could describe a different cycle than the list beside it."""
-    from raven.plugins.processes import ProcessesPlugin
+    from sentinella.plugins.processes import ProcessesPlugin
 
     listing = ProcessesPlugin(mock_config).collect()
     assert listing.total >= len(listing)
@@ -896,7 +896,7 @@ def test_process_count_falls_back_for_a_plain_list():
 
 
 def test_theme_cache_is_scoped_per_app():
-    from raven.tui import theme as theme_mod
+    from sentinella.tui import theme as theme_mod
 
     class FakeApp:
         theme = "textual-dark"
@@ -927,7 +927,7 @@ def test_theme_cache_is_scoped_per_app():
 
 
 def _snapshot_with_processes(n=60):
-    from raven.core.models import ProcessInfo
+    from sentinella.core.models import ProcessInfo
 
     return SystemSnapshot(
         processes=[
@@ -962,10 +962,10 @@ class _FixedCollector:
 
 
 def _app_for(snap, max_display=25):
-    from raven.config import ProcessesConfig
-    from raven.core.api import create_base_app
+    from sentinella.config import ProcessesConfig
+    from sentinella.core.api import create_base_app
 
-    cfg = RavenConfig(processes=ProcessesConfig(max_display=max_display))
+    cfg = SentinellaConfig(processes=ProcessesConfig(max_display=max_display))
     return create_base_app(
         config=cfg,
         collector=_FixedCollector(snap),
@@ -989,7 +989,7 @@ def test_dashboard_snapshot_drops_cmdline_and_caps_the_list():
 
 
 def test_full_snapshot_is_untouched_for_remote_clients():
-    """`raven print --remote` must export exactly what a local run would."""
+    """`sentinella print --remote` must export exactly what a local run would."""
     snap = _snapshot_with_processes()
     with TestClient(_app_for(snap)) as client:
         body = client.get("/api/v1/snapshot?full=true").json()
@@ -1025,7 +1025,7 @@ def test_processes_module_endpoint_is_trimmed_but_full_is_available():
 
 
 def test_remote_collector_asks_for_the_full_snapshot():
-    """Without ?full=true a remote `raven print` would silently export a
+    """Without ?full=true a remote `sentinella print` would silently export a
     truncated, cmdline-less list while a local run exported everything."""
     import httpx
 
@@ -1048,7 +1048,7 @@ def test_remote_collector_asks_for_the_full_snapshot():
 
 
 def test_cmdline_is_skipped_unless_requested(mock_config):
-    from raven.plugins.processes import ProcessesPlugin
+    from sentinella.plugins.processes import ProcessesPlugin
 
     plugin = ProcessesPlugin(mock_config)
     assert all(not p.cmdline for p in plugin.collect())
@@ -1076,7 +1076,7 @@ def test_both_collectors_satisfy_the_protocol(mock_config, make_local_collector)
     """MetricCollector declared four methods while core.api needed six members
     plus a private attribute, so a RemoteCollector satisfied the protocol and
     still blew up on /api/v1/{module}."""
-    from raven.core.protocols import MetricCollector
+    from sentinella.core.protocols import MetricCollector
 
     local = make_local_collector(mock_config)
     remote = RemoteCollector("127.0.0.1:9090")
@@ -1117,10 +1117,10 @@ def test_a_remote_backed_server_can_serve_module_endpoints():
     remote._client = httpx.Client(transport=transport)
     remote._async_client = httpx.AsyncClient(transport=transport)
 
-    from raven.core.api import create_base_app
+    from sentinella.core.api import create_base_app
 
     app = create_base_app(
-        config=RavenConfig(),
+        config=SentinellaConfig(),
         collector=remote,
         title="proxy",
         description="d",
@@ -1153,7 +1153,7 @@ def test_remote_collector_reports_unknown_modules_as_none():
 
 
 def test_api_no_longer_reads_a_private_collector_attribute():
-    source = (Path(__file__).parent.parent / "raven/core/api.py").read_text(encoding="utf-8")
+    source = (Path(__file__).parent.parent / "sentinella/core/api.py").read_text(encoding="utf-8")
     assert "_last_collected_at" not in source
 
 
@@ -1164,7 +1164,7 @@ def test_api_no_longer_reads_a_private_collector_attribute():
 async def test_collection_failure_notifies_once_not_every_tick(mock_config):
     """A remote agent that is down produced one toast per refresh_interval,
     indefinitely, burying the dashboard it was describing."""
-    from raven.tui.app import RavenApp
+    from sentinella.tui.app import SentinellaApp
 
     class AlwaysFailing:
         async def collect_async(self):
@@ -1179,7 +1179,7 @@ async def test_collection_failure_notifies_once_not_every_tick(mock_config):
         async def close_async(self):
             pass
 
-    app = RavenApp(collector=AlwaysFailing(), config=mock_config)
+    app = SentinellaApp(collector=AlwaysFailing(), config=mock_config)
     notifications = []
     app.notify = lambda msg, **kw: notifications.append(msg)  # type: ignore[method-assign]
     async with app.run_test():
@@ -1195,7 +1195,7 @@ async def test_collection_failure_notifies_once_not_every_tick(mock_config):
 
 @pytest.mark.asyncio
 async def test_recovery_is_announced_once(mock_config, dummy_snapshot):
-    from raven.tui.app import RavenApp
+    from sentinella.tui.app import SentinellaApp
 
     class Flaky:
         def __init__(self):
@@ -1216,7 +1216,7 @@ async def test_recovery_is_announced_once(mock_config, dummy_snapshot):
             pass
 
     collector = Flaky()
-    app = RavenApp(collector=collector, config=mock_config)
+    app = SentinellaApp(collector=collector, config=mock_config)
     notifications = []
     app.notify = lambda msg, **kw: notifications.append(msg)  # type: ignore[method-assign]
     async with app.run_test():
@@ -1239,9 +1239,9 @@ async def test_recovery_is_announced_once(mock_config, dummy_snapshot):
 
 @pytest.mark.asyncio
 async def test_tui_theme_toggle_flips_and_repaints(mock_config, mock_collector):
-    from raven.tui.app import RavenApp
+    from sentinella.tui.app import SentinellaApp
 
-    app = RavenApp(collector=mock_collector, config=mock_config)
+    app = SentinellaApp(collector=mock_collector, config=mock_config)
     async with app.run_test() as pilot:
         assert app.theme == "textual-dark"
         await pilot.press("t")
@@ -1254,7 +1254,7 @@ async def test_tui_theme_toggle_flips_and_repaints(mock_config, mock_collector):
 
 
 def test_container_running_status_has_one_definition():
-    from raven.core.models import ContainerInfo
+    from sentinella.core.models import ContainerInfo
 
     assert ContainerInfo(status="running").is_running
     assert ContainerInfo(status="up").is_running
@@ -1268,8 +1268,8 @@ def test_container_running_status_has_one_definition():
 def test_no_surface_spells_out_the_running_check_inline():
     root = Path(__file__).parent.parent
     for rel in (
-        "raven/fetch.py",
-        "raven/tui/widgets/container_widget.py",
+        "sentinella/fetch.py",
+        "sentinella/tui/widgets/container_widget.py",
     ):
         source = (root / rel).read_text(encoding="utf-8")
         assert '"running", "up"' not in source, f"{rel} still inlines the status test"

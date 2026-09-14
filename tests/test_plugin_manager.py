@@ -1,10 +1,10 @@
-from raven.config import ModulesConfig, RavenConfig
-from raven.core.plugin_manager import get_enabled_plugins
+from sentinella.config import ModulesConfig, SentinellaConfig
+from sentinella.core.plugin_manager import get_enabled_plugins
 
 
 def test_plugin_manager_filtering():
     # Test enabling all
-    cfg = RavenConfig(
+    cfg = SentinellaConfig(
         modules=ModulesConfig(
             cpu=True,
             memory=True,
@@ -22,7 +22,7 @@ def test_plugin_manager_filtering():
     assert "memory" in names
 
     # Test disabling cpu
-    cfg_no_cpu = RavenConfig(
+    cfg_no_cpu = SentinellaConfig(
         modules=ModulesConfig(
             cpu=False,
             memory=True,

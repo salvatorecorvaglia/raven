@@ -1,11 +1,11 @@
 import threading
 
-from raven.config import RavenConfig
-from raven.core.collector import Collector
+from sentinella.config import SentinellaConfig
+from sentinella.core.collector import Collector
 
 
 def test_collector_concurrency():
-    config = RavenConfig()
+    config = SentinellaConfig()
     collector = Collector(config)
 
     results = []

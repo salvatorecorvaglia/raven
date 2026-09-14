@@ -1,14 +1,14 @@
 from collections import namedtuple
 from unittest.mock import MagicMock, patch
 
-from raven.plugins.cpu import CpuPlugin
-from raven.plugins.disk import DiskPlugin
-from raven.plugins.memory import MemoryPlugin
-from raven.plugins.network import NetworkPlugin
-from raven.plugins.processes import ProcessesPlugin
-from raven.plugins.sensors import SensorsPlugin
-from raven.plugins.system_info import SystemInfoPlugin
-from raven.plugins.users import UsersPlugin
+from sentinella.plugins.cpu import CpuPlugin
+from sentinella.plugins.disk import DiskPlugin
+from sentinella.plugins.memory import MemoryPlugin
+from sentinella.plugins.network import NetworkPlugin
+from sentinella.plugins.processes import ProcessesPlugin
+from sentinella.plugins.sensors import SensorsPlugin
+from sentinella.plugins.system_info import SystemInfoPlugin
+from sentinella.plugins.users import UsersPlugin
 
 # The plugin diffs two cpu_times samples of its own rather than calling
 # psutil.cpu_percent, whose "time of last call" state is keyed by thread id —
@@ -267,7 +267,7 @@ def test_processes_plugin_sort_override_re_truncates(mock_process_iter):
     """A per-call sort_by must change *truncation*, not just the order of an
     already-truncated slice — otherwise cycling sort in the TUI can never
     surface a process that the default sort's truncation already cut."""
-    from raven.config import ProcessesConfig, RavenConfig
+    from sentinella.config import ProcessesConfig, SentinellaConfig
 
     def make_info(pid, cpu, mem):
         info = MagicMock()
@@ -291,7 +291,7 @@ def test_processes_plugin_sort_override_re_truncates(mock_process_iter):
     standout = make_info(999, cpu=0.0, mem=99.0)
     mock_process_iter.return_value = [*bulk, standout]
 
-    cfg = RavenConfig(processes=ProcessesConfig(max_display=25, sort_by="cpu"))
+    cfg = SentinellaConfig(processes=ProcessesConfig(max_display=25, sort_by="cpu"))
     plugin = ProcessesPlugin(config=cfg)
 
     default_sorted = plugin.collect()
@@ -302,13 +302,13 @@ def test_processes_plugin_sort_override_re_truncates(mock_process_iter):
 
 
 def test_processes_plugin_config_cache():
-    from raven.config import ProcessesConfig, RavenConfig
+    from sentinella.config import ProcessesConfig, SentinellaConfig
 
-    custom_cfg = RavenConfig(processes=ProcessesConfig(max_display=5))
+    custom_cfg = SentinellaConfig(processes=ProcessesConfig(max_display=5))
     plugin = ProcessesPlugin(config=custom_cfg)
     assert plugin._config is custom_cfg
 
-    with patch("raven.config.load_config") as mock_load:
+    with patch("sentinella.config.load_config") as mock_load:
         mock_load.return_value = custom_cfg
         plugin_auto = ProcessesPlugin()
         assert plugin_auto._config is custom_cfg

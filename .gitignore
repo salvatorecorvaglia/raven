@@ -78,9 +78,9 @@ coverage/
 # Documentation
 site/
 
-# Project-specific / Raven
-raven_monitor.egg-info/
-!raven.example.toml
+# Project-specific / Sentinella
+sentinella_monitor.egg-info/
+!sentinella.example.toml
 
 # IDEs and Editors
 .idea/

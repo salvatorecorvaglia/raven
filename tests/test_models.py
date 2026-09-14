@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from raven.core.models import CpuMetrics, SystemInfoMetrics
+from sentinella.core.models import CpuMetrics, SystemInfoMetrics
 
 
 def test_models_frozen():

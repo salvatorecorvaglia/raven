@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 const STATIC = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
-    "../../raven/web/static"
+    "../../sentinella/web/static"
 );
 
 const html = readFileSync(path.join(STATIC, "index.html"), "utf8");
@@ -28,7 +28,7 @@ function loadLibIntoWindow(win) {
     const ctx = { self: win, btoa: win.btoa ?? globalThis.btoa, atob: win.atob ?? globalThis.atob };
     vm.createContext(ctx);
     vm.runInContext(libSource, ctx);
-    return win.RavenLib;
+    return win.SentinellaLib;
 }
 
 describe("page markup", () => {
@@ -103,11 +103,11 @@ describe("page markup", () => {
 });
 
 describe("app.js / lib.js contract", () => {
-    it("exports everything app.js destructures from RavenLib", () => {
+    it("exports everything app.js destructures from SentinellaLib", () => {
         const lib = loadLibIntoWindow(window);
         const block = appSource.slice(
             appSource.indexOf("const {"),
-            appSource.indexOf("} = window.RavenLib;")
+            appSource.indexOf("} = window.SentinellaLib;")
         );
         const needed = block
             .replace("const {", "")
@@ -125,7 +125,7 @@ describe("app.js / lib.js contract", () => {
         const lib = loadLibIntoWindow(window);
         for (const name of ["classForPercent", "bgClassForPercent", "classForTemp"]) {
             expect(typeof lib[name]).toBe("function");
-            expect(appSource).toContain(`window.RavenLib.${name}(`);
+            expect(appSource).toContain(`window.SentinellaLib.${name}(`);
         }
     });
 

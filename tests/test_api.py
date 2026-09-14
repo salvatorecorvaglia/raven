@@ -1,14 +1,14 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from raven.config import RavenConfig, WebConfig
-from raven.web.server import create_app
+from sentinella.config import SentinellaConfig, WebConfig
+from sentinella.web.server import create_app
 
 
 @pytest.fixture
 def api_client(mock_config):
     # Set up config with a mock API key
-    cfg = RavenConfig(web=WebConfig(api_key="secret-key", host="127.0.0.1", port=8080))
+    cfg = SentinellaConfig(web=WebConfig(api_key="secret-key", host="127.0.0.1", port=8080))
     app = create_app(cfg)
     return TestClient(app)
 
@@ -22,7 +22,7 @@ def test_api_health_check(api_client):
 def test_api_static_skip_auth(api_client):
     response = api_client.get("/")
     assert response.status_code == 200
-    assert "Raven" in response.text
+    assert "Sentinella" in response.text
 
 
 def test_api_auth_required_without_key(api_client):

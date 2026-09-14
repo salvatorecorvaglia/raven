@@ -2,9 +2,9 @@ import dataclasses
 
 import pytest
 
-from raven.core.models import SystemSnapshot
-from raven.remote.client import RemoteCollector
-from raven.remote.server import create_remote_app
+from sentinella.core.models import SystemSnapshot
+from sentinella.remote.client import RemoteCollector
+from sentinella.remote.server import create_remote_app
 
 
 def test_client_parse_roundtrip(dummy_snapshot):

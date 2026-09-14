@@ -13,7 +13,7 @@ import vm from "node:vm";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const STATIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../raven/web/static");
+const STATIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../sentinella/web/static");
 const html = readFileSync(path.join(STATIC, "index.html"), "utf8");
 const libSource = readFileSync(path.join(STATIC, "lib.js"), "utf8");
 const appSource = readFileSync(path.join(STATIC, "app.js"), "utf8");

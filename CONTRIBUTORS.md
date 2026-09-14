@@ -1,6 +1,6 @@
 # Contributors 👥
 
-A huge thank you to everyone who has contributed to **Raven**!
+A huge thank you to everyone who has contributed to **Sentinella**!
 
 ## ✨ Lead Maintainer
 
